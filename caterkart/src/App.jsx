@@ -7,6 +7,7 @@ import AdminHome from './Pages/AdminHome';
 import Dashboard from './Components/Admin/Dashboard';
 import UsersList from './Components/Admin/UsersList';
 import FaresList from './Components/Admin/FaresList';
+import Works from './Components/Admin/Works';
 import PrivateRoute from './PrivateRoute';
 
 const App = () => {
@@ -23,6 +24,7 @@ const App = () => {
             <Route path="dashboard" element={<Dashboard />} />
             <Route path="users" element={<UsersList />} />
             <Route path="fares" element={<FaresList />} />
+            <Route path="works" element={<Works />} />
           </Route>
         </Route>
         

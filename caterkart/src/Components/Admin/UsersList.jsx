@@ -1,10 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { getUsersList, clearUsersError } from '../../Services/Api/Admin/UserSlice';
+import { getUsersList, clearUsersError, createUser, clearCreateError } from '../../Services/Api/Admin/UserSlice';
 
 const UsersList = () => {
   const dispatch = useDispatch();
-  const { users, isLoading, error } = useSelector((state) => state.users);
+  const { users, isLoading, error, isCreating, createError } = useSelector((state) => state.users);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [formData, setFormData] = useState({
     user_name: '',
@@ -15,7 +15,6 @@ const UsersList = () => {
     confirmPassword: ''
   });
   const [formErrors, setFormErrors] = useState({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const USER_ROLES = [
     { value: 'subadmin', label: 'Subadmin/Captain' },
@@ -27,6 +26,13 @@ const UsersList = () => {
   useEffect(() => {
     dispatch(getUsersList());
   }, [dispatch]);
+
+  // Clear create error when modal opens
+  useEffect(() => {
+    if (isCreateModalOpen) {
+      dispatch(clearCreateError());
+    }
+  }, [isCreateModalOpen, dispatch]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -88,13 +94,13 @@ const UsersList = () => {
       return;
     }
     
-    setIsSubmitting(true);
+    // Prepare data for API (exclude confirmPassword)
+    const { confirmPassword, ...submitData } = formData;
     
     try {
-      // Simulate API call - replace with actual API call
-      await new Promise(resolve => setTimeout(resolve, 1000));
+      await dispatch(createUser(submitData)).unwrap();
       
-      // Reset form and close modal
+      // Reset form and close modal on success
       setFormData({
         user_name: '',
         email: '',
@@ -103,16 +109,15 @@ const UsersList = () => {
         password: '',
         confirmPassword: ''
       });
+      setFormErrors({});
       setIsCreateModalOpen(false);
       
       // Refresh users list
       dispatch(getUsersList());
       
-      console.log('User created successfully');
     } catch (error) {
+      // Error is handled by Redux state
       console.error('Error creating user:', error);
-    } finally {
-      setIsSubmitting(false);
     }
   };
 
@@ -127,6 +132,7 @@ const UsersList = () => {
       confirmPassword: ''
     });
     setFormErrors({});
+    dispatch(clearCreateError());
   };
 
   const getRoleBadgeColor = (role) => {
@@ -188,6 +194,18 @@ const UsersList = () => {
           {error}
           <button
             onClick={() => dispatch(clearUsersError())}
+            className="ml-4 text-red-500 hover:text-red-700"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
+      {createError && (
+        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {createError}
+          <button
+            onClick={() => dispatch(clearCreateError())}
             className="ml-4 text-red-500 hover:text-red-700"
           >
             ×
@@ -260,7 +278,7 @@ const UsersList = () => {
                 </button>
               </div>
               
-              <div>
+              <form onSubmit={handleSubmit}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
                     Username *
@@ -274,6 +292,7 @@ const UsersList = () => {
                       formErrors.user_name ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Enter username"
+                    disabled={isCreating}
                   />
                   {formErrors.user_name && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.user_name}</p>
@@ -293,6 +312,7 @@ const UsersList = () => {
                       formErrors.email ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Enter email"
+                    disabled={isCreating}
                   />
                   {formErrors.email && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
@@ -312,6 +332,7 @@ const UsersList = () => {
                       formErrors.mobile_number ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Enter mobile number"
+                    disabled={isCreating}
                   />
                   {formErrors.mobile_number && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.mobile_number}</p>
@@ -329,6 +350,7 @@ const UsersList = () => {
                     className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                       formErrors.role ? 'border-red-500' : 'border-gray-300'
                     }`}
+                    disabled={isCreating}
                   >
                     <option value="">Select a role</option>
                     {USER_ROLES.map((role) => (
@@ -355,6 +377,7 @@ const UsersList = () => {
                       formErrors.password ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Enter password"
+                    disabled={isCreating}
                   />
                   {formErrors.password && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
@@ -374,6 +397,7 @@ const UsersList = () => {
                       formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'
                     }`}
                     placeholder="Confirm password"
+                    disabled={isCreating}
                   />
                   {formErrors.confirmPassword && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.confirmPassword}</p>
@@ -385,18 +409,19 @@ const UsersList = () => {
                     type="button"
                     onClick={handleCloseModal}
                     className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                    disabled={isCreating}
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
-                    disabled={isSubmitting}
+                    disabled={isCreating}
                     className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
                   >
-                    {isSubmitting ? 'Creating...' : 'Create User'}
+                    {isCreating ? 'Creating...' : 'Create User'}
                   </button>
                 </div>
-              </div>
+              </form>
             </div>
           </div>
         </div>

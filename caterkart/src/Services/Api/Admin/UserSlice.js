@@ -19,13 +19,13 @@ export const getUsersList = createAsyncThunk(
   }
 );
 
-// Create new user
+// Create new user - Updated to use correct endpoint
 export const createUser = createAsyncThunk(
   'users/createUser',
   async (userData, { rejectWithValue, getState }) => {
     try {
       const { adminAuth } = getState();
-      const response = await axios.post('https://catershub.pythonanywhere.com/admin_panel/admin/users/', userData, {
+      const response = await axios.post('https://catershub.pythonanywhere.com/users/create-user/', userData, {
         headers: {
           'Authorization': `Bearer ${adminAuth.tokens?.access}`,
           'Content-Type': 'application/json'

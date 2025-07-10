@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Users, DollarSign, X, LogOut } from 'lucide-react';
+import { Home, Users, DollarSign, Briefcase, X, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 const Sidebar = ({ activeSection, setActiveSection, sidebarOpen, setSidebarOpen }) => {
@@ -9,6 +9,7 @@ const Sidebar = ({ activeSection, setActiveSection, sidebarOpen, setSidebarOpen 
     { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/admin/dashboard' },
     { id: 'users', label: 'Users', icon: Users, path: '/admin/users' },
     { id: 'fares', label: 'Fares', icon: DollarSign, path: '/admin/fares' },
+    { id: 'works', label: 'Works', icon: Briefcase, path: '/admin/works' },
   ];
 
   const handleLogout = () => {
