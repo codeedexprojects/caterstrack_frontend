@@ -2,13 +2,16 @@ import React, { useState } from 'react';
 import { Eye, EyeOff, User, Lock, ArrowRight, AlertCircle } from 'lucide-react';
 import { useDispatch, useSelector } from 'react-redux';
 import { loginAdmin } from '../../Services/Api/Admin/AdminAuthSlice';
-import { useNavigate } from 'react-router-dom';
-
+import { useNavigate, Navigate } from 'react-router-dom';
 
 const AdminLogin = () => {
   const dispatch = useDispatch();
   const navigate = useNavigate();
-  const { isLoading, isLoggedIn, error, admin } = useSelector((state) => state.adminAuth);
+  const { isLoading, isLoggedIn, error } = useSelector((state) => state.adminAuth);
+
+  // Redirect if already logged in
+  if (isLoggedIn) return <Navigate to="/admin/dashboard" replace />;
+
   const [formData, setFormData] = useState({
     email: '',
     password: ''
@@ -23,12 +26,13 @@ const AdminLogin = () => {
     }));
   };
 
-  const handleSubmit = async () => {
+  const handleSubmit = async (e) => {
+    e.preventDefault();
     try {
       const result = await dispatch(loginAdmin(formData)).unwrap();
-
       console.log('Login successful:', result);
-      navigate('/admin');
+      // Navigate to dashboard after successful login
+      navigate('/admin/dashboard');
     } catch (error) {
       console.error('Login failed:', error);
     }
@@ -36,7 +40,6 @@ const AdminLogin = () => {
 
   return (
     <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-      
       <div className="w-full max-w-md relative">
         <div className="bg-white rounded-lg shadow-xl p-8 w-full max-w-md">
           <div>
@@ -59,7 +62,7 @@ const AdminLogin = () => {
             )}
 
             {/* Form */}
-            <div className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-6">
               {/* Email Field */}
               <div className="space-y-2">
                 <label className="text-gray-700 text-sm font-medium">Email Address</label>
@@ -111,7 +114,7 @@ const AdminLogin = () => {
 
               {/* Submit Button */}
               <button
-                onClick={handleSubmit}
+                type="submit"
                 disabled={isLoading}
                 className="w-full bg-gray-800 hover:bg-gray-900 text-white font-medium py-3 px-4 rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-gray-800 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center group"
               >
@@ -124,7 +127,7 @@ const AdminLogin = () => {
                   </>
                 )}
               </button>
-            </div>
+            </form>
 
             {/* Footer */}
             <div className="mt-8 text-center">

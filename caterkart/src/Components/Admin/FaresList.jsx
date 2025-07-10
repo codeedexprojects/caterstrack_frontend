@@ -133,14 +133,13 @@ const FaresList = () => {
                   required
                   className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                 >
-                  <option value="">Select fare type</option>
-                  <option value="loading">Loading</option>
-                  <option value="unloading">Unloading</option>
-                  <option value="express">Express</option>
-                  <option value="regular">Regular</option>
-                  <option value="premium">Premium</option>
-                  <option value="student">Student</option>
-                  <option value="tourist">Tourist</option>
+                <option value="">Select fare type</option>
+                <option value="boys">Boys</option>
+                <option value="vice_supervisor">Unloading</option>
+                <option value="supervisor">Supervisor</option>
+                <option value="captain">Captain</option>
+                <option value="setting">Setting</option>
+                <option value="loading">Loading</option>
                 </select>
               </div>
 

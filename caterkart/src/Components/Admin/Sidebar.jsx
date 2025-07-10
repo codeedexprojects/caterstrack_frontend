@@ -1,21 +1,19 @@
 import React from 'react';
-import { 
-  Home, 
-  Users, 
-  DollarSign, 
-  X, 
-  LogOut, 
-} from 'lucide-react';
+import { Home, Users, DollarSign, X, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 const Sidebar = ({ activeSection, setActiveSection, sidebarOpen, setSidebarOpen }) => {
+  const navigate = useNavigate();
+
   const sidebarItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home },
-    { id: 'users', label: 'Users', icon: Users },
-    { id: 'fares', label: 'Fares', icon: DollarSign },
+    { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/admin/dashboard' },
+    { id: 'users', label: 'Users', icon: Users, path: '/admin/users' },
+    { id: 'fares', label: 'Fares', icon: DollarSign, path: '/admin/fares' },
   ];
 
   const handleLogout = () => {
     console.log('Logout clicked');
+    navigate('/admin/login');
   };
 
   return (
@@ -46,6 +44,7 @@ const Sidebar = ({ activeSection, setActiveSection, sidebarOpen, setSidebarOpen 
                 onClick={() => {
                   setActiveSection(item.id);
                   setSidebarOpen(false);
+                  navigate(item.path);  // Navigate to the route
                 }}
                 className={`w-full flex items-center px-4 py-3 mb-2 text-left text-sm font-medium rounded-lg transition-colors ${
                   activeSection === item.id
