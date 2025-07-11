@@ -1,33 +1,21 @@
 import React, { useState } from 'react';
+import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../Components/Admin/Sidebar';
 import Header from '../Components/Admin/Header';
-import Dashboard from '../Components/Admin/Dashboard';
-import UsersList from '../Components/Admin/UsersList';
-import FaresList from '../Components/Admin/FaresList';
 
 const AdminHome = () => {
-  const [activeSection, setActiveSection] = useState('dashboard');
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const location = useLocation();
 
-  const renderContent = () => {
-    switch (activeSection) {
-      case 'dashboard':
-        return <Dashboard />;
-      case 'users':
-        return <UsersList />;
-      case 'fares':
-        return <FaresList />;
-      default:
-        return <Dashboard />;
-    }
-  };
+  // extract active section from path
+  const section = location.pathname.split('/')[2] || 'dashboard';
 
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Sidebar */}
       <Sidebar
-        activeSection={activeSection}
-        setActiveSection={setActiveSection}
+        activeSection={section}
+        setActiveSection={() => {}} // we don't need to manage it via state now
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
       />
@@ -36,12 +24,14 @@ const AdminHome = () => {
       <div className="lg:ml-64 flex flex-col min-h-screen">
         {/* Header */}
         <Header
-          activeSection={activeSection}
+          activeSection={section}
           setSidebarOpen={setSidebarOpen}
         />
 
-        {/* Content */}
-        <main className="flex-1 p-6">{renderContent()}</main>
+        {/* Routed Content */}
+        <main className="flex-1 p-6">
+          <Outlet />
+        </main>
       </div>
     </div>
   );
