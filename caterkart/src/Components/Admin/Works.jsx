@@ -12,7 +12,8 @@ import {
   ExternalLink,
   CheckCircle,
   XCircle,
-  AlertCircle
+  AlertCircle,
+  X
 } from 'lucide-react';
 import { 
   fetchWorks, 
@@ -22,8 +23,41 @@ import {
   fetchWorkRequests,
   updateWorkRequestStatus,
   assignBoyToWork,
-  fetchAssignedBoys
+  fetchAssignedBoys,
+  publishWork
 } from '../../Services/Api/Admin/WorkSlice';
+
+// Toast Component
+const Toast = ({ message, type, onClose }) => {
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      onClose();
+    }, 4000);
+    return () => clearTimeout(timer);
+  }, [onClose]);
+
+  const getToastStyles = () => {
+    switch (type) {
+      case 'success':
+        return 'bg-green-500 text-white';
+      case 'error':
+        return 'bg-red-500 text-white';
+      case 'warning':
+        return 'bg-yellow-500 text-white';
+      default:
+        return 'bg-blue-500 text-white';
+    }
+  };
+
+  return (
+    <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${getToastStyles()} animate-slide-in`}>
+      <span>{message}</span>
+      <button onClick={onClose} className="ml-2 hover:bg-white hover:bg-opacity-20 rounded p-1">
+        <X className="h-4 w-4" />
+      </button>
+    </div>
+  );
+};
 
 const Works = () => {
   const dispatch = useDispatch();
@@ -33,6 +67,8 @@ const Works = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [currentWork, setCurrentWork] = useState(null);
   const [activeTab, setActiveTab] = useState('works');
+  const [publishingWorkId, setPublishingWorkId] = useState(null);
+  const [toast, setToast] = useState(null);
   
   const [formData, setFormData] = useState({
     customer_name: '',
@@ -56,6 +92,15 @@ const Works = () => {
     dispatch(fetchWorkRequests());
   }, [dispatch]);
 
+  // Toast functions
+  const showToast = (message, type = 'info') => {
+    setToast({ message, type });
+  };
+
+  const hideToast = () => {
+    setToast(null);
+  };
+
   const handleInputChange = (e) => {
     const { name, value } = e.target;
     setFormData(prev => ({
@@ -64,14 +109,20 @@ const Works = () => {
     }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    if (isEditing) {
-      dispatch(updateWork({ id: currentWork.id, data: formData }));
-    } else {
-      dispatch(createWork(formData));
+    try {
+      if (isEditing) {
+        await dispatch(updateWork({ id: currentWork.id, data: formData })).unwrap();
+        showToast('Work updated successfully!', 'success');
+      } else {
+        await dispatch(createWork(formData)).unwrap();
+        showToast('Work created successfully!', 'success');
+      }
+      handleCloseModal();
+    } catch (error) {
+      showToast(error.message || 'Something went wrong!', 'error');
     }
-    handleCloseModal();
   };
 
   const handleEdit = (work) => {
@@ -96,11 +147,59 @@ const Works = () => {
     setShowModal(true);
   };
 
-  const handleDelete = (id) => {
-    if (window.confirm('Are you sure you want to delete this work?')) {
-      dispatch(deleteWork(id));
+  const handleDelete = async (id) => {
+    // Custom confirm dialog with toast
+    const confirmDelete = () => {
+      return new Promise((resolve) => {
+        setToast({
+          message: 'Are you sure you want to delete this work?',
+          type: 'warning',
+          showConfirm: true,
+          onConfirm: () => {
+            resolve(true);
+            hideToast();
+          },
+          onCancel: () => {
+            resolve(false);
+            hideToast();
+          }
+        });
+      });
+    };
+
+    const confirmed = await confirmDelete();
+    if (confirmed) {
+      try {
+        await dispatch(deleteWork(id)).unwrap();
+        showToast('Work deleted successfully!', 'success');
+      } catch (error) {
+        showToast(error.message || 'Failed to delete work!', 'error');
+      }
     }
   };
+
+  const handlePublishToggle = async (work) => {
+    const newStatus = !work.is_published;
+
+    try {
+      setPublishingWorkId(work.id);
+      await dispatch(publishWork({ id: work.id, is_published: newStatus })).unwrap();
+
+      // ✅ Refresh the list so UI shows updated status
+      await dispatch(fetchWorks());
+
+      const message = newStatus 
+        ? 'Work published successfully! It\'s now visible to workers.' 
+        : 'Work unpublished successfully! It\'s no longer visible to workers.';
+      
+      showToast(message, 'success');
+    } catch (error) {
+      showToast(error.message || 'Failed to update work status!', 'error');
+    } finally {
+      setPublishingWorkId(null);
+    }
+  };
+
 
   const handleCloseModal = () => {
     setShowModal(false);
@@ -124,8 +223,13 @@ const Works = () => {
     });
   };
 
-  const handleStatusUpdate = (requestId, status) => {
-    dispatch(updateWorkRequestStatus({ id: requestId, status }));
+  const handleStatusUpdate = async (requestId, status) => {
+    try {
+      await dispatch(updateWorkRequestStatus({ id: requestId, status })).unwrap();
+      showToast(`Work request ${status} successfully!`, 'success');
+    } catch (error) {
+      showToast(error.message || 'Failed to update request status!', 'error');
+    }
   };
 
   const getStatusColor = (status) => {
@@ -154,8 +258,47 @@ const Works = () => {
     }
   };
 
+  // Custom Confirm Toast Component
+  const ConfirmToast = ({ message, onConfirm, onCancel }) => (
+    <div className="fixed top-4 right-4 z-50 bg-white border border-gray-300 rounded-lg shadow-lg p-4 max-w-sm">
+      <p className="text-gray-800 mb-4">{message}</p>
+      <div className="flex gap-2 justify-end">
+        <button
+          onClick={onCancel}
+          className="px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={onConfirm}
+          className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+        >
+          Delete
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <div className="p-6">
+      {/* Toast Notifications */}
+      {toast && !toast.showConfirm && (
+        <Toast
+          message={toast.message}
+          type={toast.type}
+          onClose={hideToast}
+        />
+      )}
+
+      {/* Confirm Toast */}
+      {toast && toast.showConfirm && (
+        <ConfirmToast
+          message={toast.message}
+          onConfirm={toast.onConfirm}
+          onCancel={toast.onCancel}
+        />
+      )}
+
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Works Management</h1>
         <button
@@ -206,7 +349,7 @@ const Works = () => {
             <div key={work.id} className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
               <div className="flex justify-between items-start mb-4">
                 <h3 className="text-lg font-semibold text-gray-900">{work.customer_name}</h3>
-                <div className="flex gap-2">
+                <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleEdit(work)}
                     className="text-blue-600 hover:text-blue-800"
@@ -246,7 +389,7 @@ const Works = () => {
               </div>
               
               <div className="mt-4 pt-4 border-t border-gray-200">
-                <div className="flex justify-between items-center">
+                <div className="flex justify-between items-center mb-3">
                   <span className="text-sm font-medium text-gray-700">
                     Boys needed: {work.no_of_boys_needed}
                   </span>
@@ -261,10 +404,33 @@ const Works = () => {
                     </a>
                   )}
                 </div>
-                <div className="mt-2">
+                
+                <div className="mb-3">
                   <span className="inline-block bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded">
                     {work.work_type}
                   </span>
+                </div>
+                
+                {/* Improved Publish Button */}
+                <div className="w-full">
+                  <button
+                    onClick={() => handlePublishToggle(work)}
+                    disabled={publishingWorkId === work.id}
+                    className={`w-full py-3 px-4 rounded-lg font-medium text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                      work.is_published 
+                        ? 'bg-red-600 text-white hover:bg-red-700' 
+                        : 'bg-green-600 text-white hover:bg-green-700'
+                    }`}
+                  >
+                    {publishingWorkId === work.id ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Processing...
+                      </>
+                    ) : (
+                      work.is_published ? 'Unpublish' : 'Publish'
+                    )}
+                  </button>
                 </div>
               </div>
             </div>
@@ -559,8 +725,9 @@ const Works = () => {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 flex items-center gap-2"
                 >
+                  {loading && <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>}
                   {loading ? 'Saving...' : (isEditing ? 'Update' : 'Create')}
                 </button>
               </div>
@@ -568,6 +735,23 @@ const Works = () => {
           </div>
         </div>
       )}
+
+      {/* CSS for animations */}
+      <style jsx>{`
+        @keyframes slide-in {
+          from {
+            transform: translateX(100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateX(0);
+            opacity: 1;
+          }
+        }
+        .animate-slide-in {
+          animation: slide-in 0.3s ease-out;
+        }
+      `}</style>
     </div>
   );
 };

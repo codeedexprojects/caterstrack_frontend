@@ -116,6 +116,44 @@ export const updateWork = createAsyncThunk(
   }
 );
 
+export const publishWork = createAsyncThunk(
+  'work/publishWork',
+  async ({ id, is_published }, { rejectWithValue, getState, dispatch }) => {
+    try {
+      const { adminAuth } = getState();
+      
+      // Check if user is authenticated
+      if (!adminAuth.tokens?.access) {
+        return rejectWithValue('Not authenticated');
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/admin_panel/catering-work/${id}/update/`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminAuth.tokens.access}`,
+        },
+        body: JSON.stringify({ is_published }),
+      });
+      
+      // Handle 401 unauthorized errors
+      if (response.status === 401) {
+        dispatch({ type: 'adminAuth/logoutAdmin' });
+        return rejectWithValue('Session expired. Please login again.');
+      }
+      
+      if (!response.ok) {
+        throw new Error('Failed to publish/unpublish work');
+      }
+      
+      const updatedData = await response.json();
+      return { id, is_published, data: updatedData };
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 export const deleteWork = createAsyncThunk(
   'work/deleteWork',
   async (id, { rejectWithValue, getState, dispatch }) => {
