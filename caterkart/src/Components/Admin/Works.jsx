@@ -13,7 +13,11 @@ import {
   CheckCircle,
   XCircle,
   AlertCircle,
-  X
+  X,
+  Building,
+  ChefHat,
+  FileText,
+  Info
 } from 'lucide-react';
 import { 
   fetchWorks, 
@@ -84,7 +88,11 @@ const Works = () => {
     assigned_supervisor: '',
     assigned_boys: [],
     payment_amount: '',
-    location_url: ''
+    location_url: '',
+    Auditorium_name: '',
+    Catering_company: '',
+    remarks: '',
+    about_work: ''
   });
 
   useEffect(() => {
@@ -128,20 +136,24 @@ const Works = () => {
   const handleEdit = (work) => {
     setCurrentWork(work);
     setFormData({
-      customer_name: work.customer_name,
-      customer_mobile: work.customer_mobile,
-      address: work.address,
-      place: work.place,
-      district: work.district,
-      date: work.date,
-      time: work.time,
-      work_type: work.work_type,
-      no_of_boys_needed: work.no_of_boys_needed,
-      attendees: work.attendees,
+      customer_name: work.customer_name || '',
+      customer_mobile: work.customer_mobile || '',
+      address: work.address || '',
+      place: work.place || '',
+      district: work.district || '',
+      date: work.date || '',
+      time: work.time || '',
+      work_type: work.work_type || '',
+      no_of_boys_needed: work.no_of_boys_needed || '',
+      attendees: work.attendees || '',
       assigned_supervisor: work.assigned_supervisor || '',
       assigned_boys: work.assigned_boys || [],
-      payment_amount: work.payment_amount,
-      location_url: work.location_url
+      payment_amount: work.payment_amount || '',
+      location_url: work.location_url || '',
+      Auditorium_name: work.Auditorium_name || '',
+      Catering_company: work.Catering_company || '',
+      remarks: work.remarks || '',
+      about_work: work.about_work || ''
     });
     setIsEditing(true);
     setShowModal(true);
@@ -200,7 +212,6 @@ const Works = () => {
     }
   };
 
-
   const handleCloseModal = () => {
     setShowModal(false);
     setIsEditing(false);
@@ -219,7 +230,11 @@ const Works = () => {
       assigned_supervisor: '',
       assigned_boys: [],
       payment_amount: '',
-      location_url: ''
+      location_url: '',
+      Auditorium_name: '',
+      Catering_company: '',
+      remarks: '',
+      about_work: ''
     });
   };
 
@@ -300,13 +315,13 @@ const Works = () => {
       )}
 
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Works Management</h1>
+        <h1 className="text-2xl font-bold text-gray-900">Work Management</h1>
         <button
           onClick={() => setShowModal(true)}
           className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
         >
           <Plus className="h-4 w-4" />
-          Create Work
+          Add Work
         </button>
       </div>
 
@@ -321,7 +336,7 @@ const Works = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Works
+            All Works
           </button>
           <button
             onClick={() => setActiveTab('requests')}
@@ -331,7 +346,7 @@ const Works = () => {
                 : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
             }`}
           >
-            Work Requests
+            Work Managemnet
           </button>
         </nav>
       </div>
@@ -348,22 +363,49 @@ const Works = () => {
           {works.map((work) => (
             <div key={work.id} className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
               <div className="flex justify-between items-start mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">{work.customer_name}</h3>
+                <div className="flex-1">
+                  {/* Auditorium name as main heading */}
+                  <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                    <Building className="h-5 w-5 text-blue-600" />
+                    {work.Auditorium_name || 'Auditorium Not Specified'}
+                  </h3>
+                  {/* Catering company as sub-heading */}
+                  {work.Catering_company && (
+                    <p className="text-md text-gray-700 mb-2 flex items-center gap-2 font-medium">
+                      <ChefHat className="h-4 w-4 text-orange-600" />
+                      {work.Catering_company}
+                    </p>
+                  )}
+                  <p className="text-sm text-gray-500">Customer: {work.customer_name}</p>
+                </div>
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => handleEdit(work)}
-                    className="text-blue-600 hover:text-blue-800"
+                    className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
                   >
                     <Edit2 className="h-4 w-4" />
                   </button>
                   <button
                     onClick={() => handleDelete(work.id)}
-                    className="text-red-600 hover:text-red-800"
+                    className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
                   >
                     <Trash2 className="h-4 w-4" />
                   </button>
                 </div>
               </div>
+              
+              {/* About Work Section */}
+              {work.about_work && (
+                <div className="bg-blue-50 p-3 rounded-lg mb-4">
+                  <div className="flex items-start gap-2">
+                    <Info className="h-4 w-4 text-blue-600 mt-0.5 flex-shrink-0" />
+                    <div>
+                      <p className="text-sm font-medium text-blue-900 mb-1">About Work:</p>
+                      <p className="text-sm text-blue-800">{work.about_work}</p>
+                    </div>
+                  </div>
+                </div>
+              )}
               
               <div className="space-y-2 text-sm text-gray-600">
                 <div className="flex items-center gap-2">
@@ -398,7 +440,7 @@ const Works = () => {
                       href={work.location_url}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800"
+                      className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
                     >
                       <ExternalLink className="h-4 w-4" />
                     </a>
@@ -410,8 +452,21 @@ const Works = () => {
                     {work.work_type}
                   </span>
                 </div>
+
+                {/* Remarks Section */}
+                {work.remarks && (
+                  <div className="mb-3 bg-gray-50 p-3 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <FileText className="h-4 w-4 text-gray-500 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-xs font-medium text-gray-700 mb-1">Remarks:</p>
+                        <p className="text-xs text-gray-600">{work.remarks}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
                 
-                {/* Improved Publish Button */}
+                {/* Publish Button */}
                 <div className="w-full">
                   <button
                     onClick={() => handlePublishToggle(work)}
@@ -491,13 +546,13 @@ const Works = () => {
                         <div className="flex gap-2">
                           <button
                             onClick={() => handleStatusUpdate(request.id, 'accepted')}
-                            className="text-green-600 hover:text-green-900"
+                            className="text-green-600 hover:text-green-900 px-2 py-1 rounded hover:bg-green-50"
                           >
                             Accept
                           </button>
                           <button
                             onClick={() => handleStatusUpdate(request.id, 'rejected')}
-                            className="text-red-600 hover:text-red-900"
+                            className="text-red-600 hover:text-red-900 px-2 py-1 rounded hover:bg-red-50"
                           >
                             Reject
                           </button>
@@ -512,206 +567,285 @@ const Works = () => {
         </div>
       )}
 
-      {/* Modal */}
+      {/* Enhanced Modal */}
       {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+          <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-bold text-gray-900">
-                {isEditing ? 'Edit Work' : 'Create New Work'}
+                {isEditing ? 'Edit Work' : 'Add New Work'}
               </h2>
               <button
                 onClick={handleCloseModal}
                 className="text-gray-500 hover:text-gray-700"
               >
-                <XCircle className="h-6 w-6" />
+                <X className="h-6 w-6" />
               </button>
             </div>
             
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+            <form onSubmit={handleSubmit} className="space-y-6">
+              {/* Venue & Event Details Section */}
+              <div className="bg-blue-50 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3 flex items-center gap-2">
+                  <Building className="h-5 w-5" />
+                  Venue & Event Details
+                </h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Auditorium Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="Auditorium_name"
+                      value={formData.Auditorium_name}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                      placeholder="Enter auditorium name"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Catering Company
+                    </label>
+                    <input
+                      type="text"
+                      name="Catering_company"
+                      value={formData.Catering_company}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter catering company name"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Customer Name
+                    About Work
                   </label>
-                  <input
-                    type="text"
-                    name="customer_name"
-                    value={formData.customer_name}
+                  <textarea
+                    name="about_work"
+                    value={formData.about_work}
                     onChange={handleInputChange}
+                    rows={3}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
+                    placeholder="Describe the work details, requirements, and any special instructions..."
                   />
                 </div>
                 
-                <div>
+                <div className="mt-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Mobile Number
+                    Remarks
                   </label>
-                  <input
-                    type="tel"
-                    name="customer_mobile"
-                    value={formData.customer_mobile}
+                  <textarea
+                    name="remarks"
+                    value={formData.remarks}
                     onChange={handleInputChange}
+                    rows={2}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
+                    placeholder="Any additional notes, special requirements, or important information..."
                   />
                 </div>
               </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Address
-                </label>
-                <textarea
-                  name="address"
-                  value={formData.address}
-                  onChange={handleInputChange}
-                  rows={2}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  required
-                />
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
+
+              {/* Customer Information */}
+              <div className="bg-gray-50 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Customer Information</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Customer Name <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="customer_name"
+                      value={formData.customer_name}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                      placeholder="Enter customer name"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Mobile Number <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="tel"
+                      name="customer_mobile"
+                      value={formData.customer_mobile}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                      placeholder="Enter mobile number"
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Place
+                    Address <span className="text-red-500">*</span>
                   </label>
-                  <input
-                    type="text"
-                    name="place"
-                    value={formData.place}
+                  <textarea
+                    name="address"
+                    value={formData.address}
                     onChange={handleInputChange}
+                    rows={2}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                     required
+                    placeholder="Enter full address"
                   />
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    District
-                  </label>
-                  <input
-                    type="text"
-                    name="district"
-                    value={formData.district}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Place <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="place"
+                      value={formData.place}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                      placeholder="Enter place"
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      District <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      name="district"
+                      value={formData.district}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                      placeholder="Enter district"
+                    />
+                  </div>
                 </div>
               </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Date
-                  </label>
-                  <input
-                    type="date"
-                    name="date"
-                    value={formData.date}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
+
+              {/* Event Details */}
+              <div className="bg-green-50 p-4 rounded-lg">
+                <h3 className="text-lg font-semibold text-gray-900 mb-3">Event Details</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Date <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="date"
+                      name="date"
+                      value={formData.date}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Time <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="time"
+                      name="time"
+                      value={formData.time}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
                 </div>
                 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Time
-                  </label>
-                  <input
-                    type="time"
-                    name="time"
-                    value={formData.time}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Work Type
-                  </label>
-                  <select
-                    name="work_type"
-                    value={formData.work_type}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  >
-                    <option value="">Select work type</option>
-                    <option value="wedding">Wedding</option>
-                    <option value="birthday">Birthday</option>
-                    <option value="corporate">Corporate</option>
-                    <option value="festival">Festival</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-                
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Boys Needed
-                  </label>
-                  <input
-                    type="number"
-                    name="no_of_boys_needed"
-                    value={formData.no_of_boys_needed}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
-                </div>
-              </div>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Attendees
-                  </label>
-                  <input
-                    type="number"
-                    name="attendees"
-                    value={formData.attendees}
-                    onChange={handleInputChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
-                  />
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Work Type <span className="text-red-500">*</span>
+                    </label>
+                    <select
+                      name="work_type"
+                      value={formData.work_type}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    >
+                      <option value="">Select work type</option>
+                      <option value="wedding">Wedding</option>
+                      <option value="birthday">Birthday</option>
+                      <option value="corporate">Corporate</option>
+                      <option value="festival">Festival</option>
+                      <option value="other">Other</option>
+                    </select>
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Boys Needed <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="no_of_boys_needed"
+                      value={formData.no_of_boys_needed}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
                 </div>
                 
-                <div>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Attendees <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      name="attendees"
+                      value={formData.attendees}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                  
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">
+                      Payment Amount <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      type="number"
+                      step="0.01"
+                      name="payment_amount"
+                      value={formData.payment_amount}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
+                    />
+                  </div>
+                </div>
+                
+                <div className="mt-4">
                   <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Payment Amount
+                    Location URL
                   </label>
                   <input
-                    type="number"
-                    step="0.01"
-                    name="payment_amount"
-                    value={formData.payment_amount}
+                    type="url"
+                    name="location_url"
+                    value={formData.location_url}
                     onChange={handleInputChange}
                     className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                    required
+                    placeholder="https://maps.google.com/..."
                   />
                 </div>
-              </div>
-              
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Location URL
-                </label>
-                <input
-                  type="url"
-                  name="location_url"
-                  value={formData.location_url}
-                  onChange={handleInputChange}
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  placeholder="https://maps.google.com/..."
-                />
               </div>
               
               <div className="flex justify-end gap-4 pt-4">

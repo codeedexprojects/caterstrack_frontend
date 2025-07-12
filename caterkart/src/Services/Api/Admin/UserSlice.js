@@ -19,6 +19,43 @@ export const getUsersList = createAsyncThunk(
   }
 );
 
+// Get user details
+export const getUserDetails = createAsyncThunk(
+  'users/getUserDetails',
+  async (userId, { rejectWithValue, getState }) => {
+    try {
+      const { adminAuth } = getState();
+      const response = await axios.get(`https://catershub.pythonanywhere.com/users/users/${userId}/admin-update/`, {
+        headers: {
+          'Authorization': `Bearer ${adminAuth.tokens?.access}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch user details');
+    }
+  }
+);
+
+// Update user details
+export const updateUserDetails = createAsyncThunk(
+  'users/updateUserDetails',
+  async ({ userId, userData }, { rejectWithValue, getState }) => {
+    try {
+      const { adminAuth } = getState();
+      const response = await axios.post(`https://catershub.pythonanywhere.com/users/users/${userId}/admin-update/`, userData, {
+        headers: {
+          'Authorization': `Bearer ${adminAuth.tokens?.access}`,
+          'Content-Type': 'application/json'
+        }
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to update user details');
+    }
+  }
+);
+
 // Create new user - Updated to use correct endpoint
 export const createUser = createAsyncThunk(
   'users/createUser',
@@ -77,7 +114,9 @@ export const deleteUser = createAsyncThunk(
 
 const initialState = {
   users: [],
+  userDetails: null,
   isLoading: false,
+  isLoadingDetails: false,
   isCreating: false,
   isUpdating: false,
   isDeleting: false,
@@ -85,6 +124,7 @@ const initialState = {
   createError: null,
   updateError: null,
   deleteError: null,
+  detailsError: null,
 };
 
 const usersSlice = createSlice({
@@ -103,11 +143,18 @@ const usersSlice = createSlice({
     clearDeleteError: (state) => {
       state.deleteError = null;
     },
+    clearDetailsError: (state) => {
+      state.detailsError = null;
+    },
     resetUserState: (state) => {
       state.error = null;
       state.createError = null;
       state.updateError = null;
       state.deleteError = null;
+      state.detailsError = null;
+    },
+    clearUserDetails: (state) => {
+      state.userDetails = null;
     },
   },
   extraReducers: (builder) => {
@@ -124,6 +171,40 @@ const usersSlice = createSlice({
       .addCase(getUsersList.rejected, (state, action) => {
         state.isLoading = false;
         state.error = action.payload;
+      })
+      
+      // Get User Details
+      .addCase(getUserDetails.pending, (state) => {
+        state.isLoadingDetails = true;
+        state.detailsError = null;
+      })
+      .addCase(getUserDetails.fulfilled, (state, action) => {
+        state.isLoadingDetails = false;
+        state.userDetails = action.payload;
+      })
+      .addCase(getUserDetails.rejected, (state, action) => {
+        state.isLoadingDetails = false;
+        state.detailsError = action.payload;
+      })
+      
+      // Update User Details
+      .addCase(updateUserDetails.pending, (state) => {
+        state.isUpdating = true;
+        state.updateError = null;
+      })
+      .addCase(updateUserDetails.fulfilled, (state, action) => {
+        state.isUpdating = false;
+        // Update user details in state
+        state.userDetails = action.payload;
+        // Also update in users list if present
+        const index = state.users.findIndex(user => user.id === action.payload.id);
+        if (index !== -1) {
+          state.users[index] = { ...state.users[index], ...action.payload };
+        }
+      })
+      .addCase(updateUserDetails.rejected, (state, action) => {
+        state.isUpdating = false;
+        state.updateError = action.payload;
       })
       
       // Create User
@@ -178,7 +259,9 @@ export const {
   clearCreateError, 
   clearUpdateError, 
   clearDeleteError,
-  resetUserState 
+  clearDetailsError,
+  resetUserState,
+  clearUserDetails
 } = usersSlice.actions;
 
 export default usersSlice.reducer;
