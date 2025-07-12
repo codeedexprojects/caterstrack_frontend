@@ -209,26 +209,21 @@ const FaresList = () => {
             )}
 
             <div>
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  Fare Type
-                </label>
-                <select
-                  name="fare_type"
-                  value={formData.fare_type}
-                  onChange={handleInputChange}
-                  required
-                  className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                >
-                  <option value="">Select fare type</option>
-                  <option value="boys">Boys</option>
-                  <option value="Head_Boy">Head Boy</option>
-                  <option value="supervisor">Supervisor</option>
-                  <option value="captain">Captain</option>
-                  <option value="setting">Setting</option>
-                  <option value="loading">Loading</option>
-                </select>
-              </div>
+            <div className="mb-4">
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Fare Type
+              </label>
+              <input
+                type="text"
+                name="fare_type"
+                value={formData.fare_type}
+                onChange={handleInputChange}
+                required
+                placeholder="Enter fare type"
+                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+
 
               <div className="mb-6">
                 <label className="block text-sm font-medium text-gray-700 mb-2">

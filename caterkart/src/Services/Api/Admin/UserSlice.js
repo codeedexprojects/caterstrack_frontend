@@ -81,7 +81,7 @@ export const updateUser = createAsyncThunk(
   async ({ userId, userData }, { rejectWithValue, getState }) => {
     try {
       const { adminAuth } = getState();
-      const response = await axios.put(`https://catershub.pythonanywhere.com/admin_panel/admin/users/${userId}/`, userData, {
+      const response = await axios.patch(`https://catershub.pythonanywhere.com/users/users/${userId}/admin-update/`, userData, {
         headers: {
           'Authorization': `Bearer ${adminAuth.tokens?.access}`,
           'Content-Type': 'application/json'
@@ -100,7 +100,7 @@ export const deleteUser = createAsyncThunk(
   async (userId, { rejectWithValue, getState }) => {
     try {
       const { adminAuth } = getState();
-      await axios.delete(`https://catershub.pythonanywhere.com/admin_panel/admin/users/${userId}/`, {
+      await axios.delete(`https://catershub.pythonanywhere.com/users/users/${userId}/delete/`, {
         headers: {
           'Authorization': `Bearer ${adminAuth.tokens?.access}`
         }
@@ -108,6 +108,48 @@ export const deleteUser = createAsyncThunk(
       return userId;
     } catch (error) {
       return rejectWithValue(error.response?.data?.message || 'Failed to delete user');
+    }
+  }
+);
+
+// Search users
+export const searchUsers = createAsyncThunk(
+  'users/searchUsers',
+  async (searchQuery, { rejectWithValue, getState }) => {
+    try {
+      const { adminAuth } = getState();
+      const response = await axios.get(`https://catershub.pythonanywhere.com/users/users/search/?search=${searchQuery}`, {
+        headers: {
+          'Authorization': `Bearer ${adminAuth.tokens?.access}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to search users');
+    }
+  }
+);
+
+// Filter users
+export const filterUsers = createAsyncThunk(
+  'users/filterUsers',
+  async (filterParams, { rejectWithValue, getState }) => {
+    try {
+      const { adminAuth } = getState();
+      const queryParams = new URLSearchParams();
+      
+      if (filterParams.role) queryParams.append('role', filterParams.role);
+      if (filterParams.employment_type) queryParams.append('employment_type', filterParams.employment_type);
+      if (filterParams.has_bike !== undefined) queryParams.append('has_bike', filterParams.has_bike);
+      
+      const response = await axios.get(`https://catershub.pythonanywhere.com/users/users/filter/?${queryParams.toString()}`, {
+        headers: {
+          'Authorization': `Bearer ${adminAuth.tokens?.access}`
+        }
+      });
+      return response.data;
+    } catch (error) {
+      return rejectWithValue(error.response?.data?.message || 'Failed to filter users');
     }
   }
 );
@@ -125,6 +167,12 @@ const initialState = {
   updateError: null,
   deleteError: null,
   detailsError: null,
+  searchResults: [],
+  filterResults: [],
+  isSearching: false,
+  isFiltering: false,
+  searchError: null,
+  filterError: null,
 };
 
 const usersSlice = createSlice({
@@ -155,6 +203,12 @@ const usersSlice = createSlice({
     },
     clearUserDetails: (state) => {
       state.userDetails = null;
+    },
+    clearSearchResults: (state) => {
+      state.searchResults = [];
+    },
+    clearFilterResults: (state) => {
+      state.filterResults = [];
     },
   },
   extraReducers: (builder) => {
@@ -250,6 +304,33 @@ const usersSlice = createSlice({
       .addCase(deleteUser.rejected, (state, action) => {
         state.isDeleting = false;
         state.deleteError = action.payload;
+      })
+      // Search Users
+      .addCase(searchUsers.pending, (state) => {
+        state.isSearching = true;
+        state.searchError = null;
+      })
+      .addCase(searchUsers.fulfilled, (state, action) => {
+        state.isSearching = false;
+        state.searchResults = action.payload;
+      })
+      .addCase(searchUsers.rejected, (state, action) => {
+        state.isSearching = false;
+        state.searchError = action.payload;
+      })
+
+      // Filter Users
+      .addCase(filterUsers.pending, (state) => {
+        state.isFiltering = true;
+        state.filterError = null;
+      })
+      .addCase(filterUsers.fulfilled, (state, action) => {
+        state.isFiltering = false;
+        state.filterResults = action.payload;
+      })
+      .addCase(filterUsers.rejected, (state, action) => {
+        state.isFiltering = false;
+        state.filterError = action.payload;
       });
   },
 });
@@ -261,7 +342,9 @@ export const {
   clearDeleteError,
   clearDetailsError,
   resetUserState,
-  clearUserDetails
+  clearUserDetails,
+  clearSearchResults,
+  clearFilterResults
 } = usersSlice.actions;
 
 export default usersSlice.reducer;

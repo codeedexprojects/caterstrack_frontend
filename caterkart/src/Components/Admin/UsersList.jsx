@@ -1,18 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useSelector, useDispatch } from 'react-redux';
-import { getUsersList, clearUsersError, createUser, clearCreateError, getUserDetails, updateUserDetails, clearUpdateError } from '../../Services/Api/Admin/UserSlice';
-
+import { Eye, Edit, Trash2, UserPlus } from 'lucide-react';
+import { getUsersList, clearUsersError, createUser, clearCreateError, getUserDetails, updateUserDetails, clearUpdateError, updateUser, deleteUser, clearDeleteError, searchUsers, filterUsers, clearSearchResults, clearFilterResults } from '../../Services/Api/Admin/UserSlice';
 const UsersList = () => {
   const dispatch = useDispatch();
-  const { users, isLoading, error, isCreating, createError, userDetails, isLoadingDetails, isUpdating, updateError } = useSelector((state) => state.users);
+  const { users, isLoading, error, isCreating, createError, userDetails, isLoadingDetails, isUpdating, updateError, isDeleting, deleteError, searchResults, filterResults, isSearching, isFiltering, searchError, filterError } = useSelector((state) => state.users);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewDetailsModalOpen, setIsViewDetailsModalOpen] = useState(false);
   const [isAddDetailsModalOpen, setIsAddDetailsModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
+  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [selectedUserForEdit, setSelectedUserForEdit] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [userToDelete, setUserToDelete] = useState(null);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [filterParams, setFilterParams] = useState({
+    role: '',
+    employment_type: '',
+    has_bike: ''
+  });
+  const [displayUsers, setDisplayUsers] = useState([]);
+  const [activeView, setActiveView] = useState('all'); // 'all', 'search', 'filter'
   
   const [formData, setFormData] = useState({
     user_name: '',
-    email: '',
     mobile_number: '',
     role: '',
     password: '',
@@ -25,8 +36,6 @@ const UsersList = () => {
     district: '',
     place: '',
     experienced: false,
-    profile_image: null,
-    main_area: '',
     employment_type: '',
     has_bike: false,
     has_license: false,
@@ -75,8 +84,6 @@ const UsersList = () => {
         district: userDetails.district || '',
         place: userDetails.place || '',
         experienced: userDetails.experienced || false,
-        profile_image: null, // Reset file input
-        main_area: userDetails.main_area || '',
         employment_type: userDetails.employment_type || '',
         has_bike: userDetails.has_bike || false,
         has_license: userDetails.has_license || false,
@@ -84,6 +91,28 @@ const UsersList = () => {
       });
     }
   }, [userDetails, isViewDetailsModalOpen, isAddDetailsModalOpen]);
+
+useEffect(() => {
+  if (activeView === 'search') {
+    if (Array.isArray(searchResults)) {
+      setDisplayUsers(searchResults);
+    } else if (searchResults && searchResults.results && Array.isArray(searchResults.results)) {
+      setDisplayUsers(searchResults.results);
+    } else {
+      setDisplayUsers([]);
+    }
+  } else if (activeView === 'filter') {
+    if (Array.isArray(filterResults)) {
+      setDisplayUsers(filterResults);
+    } else if (filterResults && filterResults.results && Array.isArray(filterResults.results)) {
+      setDisplayUsers(filterResults.results);
+    } else {
+      setDisplayUsers([]);
+    }
+  } else {
+    setDisplayUsers(users || []);
+  }
+}, [users, searchResults, filterResults, activeView]);
 
   const handleInputChange = (e) => {
     const { name, value } = e.target;
@@ -126,46 +155,45 @@ const UsersList = () => {
   };
 
   const validateForm = () => {
-    const errors = {};
-    
-    if (!formData.user_name.trim()) {
-      errors.user_name = 'Username is required';
-    }
-    
-    if (!formData.email.trim()) {
-      errors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      errors.email = 'Email is invalid';
-    }
-    
-    if (!formData.mobile_number.trim()) {
-      errors.mobile_number = 'Mobile number is required';
-    } else if (!/^\d{10}$/.test(formData.mobile_number)) {
-      errors.mobile_number = 'Mobile number must be 10 digits';
-    }
-    
-    if (!formData.role) {
-      errors.role = 'Role is required';
-    }
-    
-    if (!formData.password) {
-      errors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      errors.password = 'Password must be at least 6 characters';
-    }
-    
-    if (formData.password !== formData.confirmPassword) {
-      errors.confirmPassword = 'Passwords do not match';
-    }
-    
-    setFormErrors(errors);
-    return Object.keys(errors).length === 0;
-  };
+  const errors = {};
+  
+  if (!formData.user_name) {
+    errors.user_name = 'Username is required';
+  }
+  
+  if (!formData.mobile_number) {
+    errors.mobile_number = 'Mobile number is required';
+  } else if (!/^\d{10}$/.test(formData.mobile_number)) {
+    errors.mobile_number = 'Mobile number must be 10 digits';
+  }
+  
+  if (!formData.role) {
+    errors.role = 'Role is required';
+  }
+  
+  // Only validate password if it's not empty (for edit mode)
+  if (formData.password && formData.password.length < 6) {
+    errors.password = 'Password must be at least 6 characters';
+  }
+  
+  // Only check password confirmation if password is provided
+  if (formData.password && formData.password !== formData.confirmPassword) {
+    errors.confirmPassword = 'Passwords do not match';
+  }
+  
+  // For create mode, password is required
+  if (!selectedUserForEdit && !formData.password) {
+    errors.password = 'Password is required';
+  }
+  
+  setFormErrors(errors);
+  return Object.keys(errors).length === 0;
+};
 
   const validateDetailsForm = () => {
     const errors = {};
     
-    if (!detailsFormData.mobile_number.trim()) {
+    if (!detailsFormData.mobile_number) {
       errors.mobile_number = 'Mobile number is required';
     } else if (!/^\d{10}$/.test(detailsFormData.mobile_number)) {
       errors.mobile_number = 'Mobile number must be 10 digits';
@@ -191,7 +219,6 @@ const UsersList = () => {
       // Reset form and close modal on success
       setFormData({
         user_name: '',
-        email: '',
         mobile_number: '',
         role: '',
         password: '',
@@ -221,8 +248,7 @@ const UsersList = () => {
       
       // Append all form fields
       Object.keys(detailsFormData).forEach(key => {
-        if (key === 'profile_image' || key === 'license_image') {
-          // Only append files if they exist
+        if (key === 'license_image') {
           if (detailsFormData[key]) {
             formDataToSend.append(key, detailsFormData[key]);
           }
@@ -240,8 +266,6 @@ const UsersList = () => {
         district: '',
         place: '',
         experienced: false,
-        profile_image: null,
-        main_area: '',
         employment_type: '',
         has_bike: false,
         has_license: false,
@@ -274,7 +298,6 @@ const UsersList = () => {
     setIsCreateModalOpen(false);
     setFormData({
       user_name: '',
-      email: '',
       mobile_number: '',
       role: '',
       password: '',
@@ -298,8 +321,6 @@ const UsersList = () => {
       district: '',
       place: '',
       experienced: false,
-      profile_image: null,
-      main_area: '',
       employment_type: '',
       has_bike: false,
       has_license: false,
@@ -308,6 +329,140 @@ const UsersList = () => {
     setDetailsFormErrors({});
     dispatch(clearUpdateError());
   };
+
+  const handleEdit = async (userId) => {
+  const userToEdit = users.find(user => user.id === userId);
+  setSelectedUserForEdit(userToEdit);
+  setFormData({
+    user_name: userToEdit.user_name,
+    mobile_number: userToEdit.mobile_number,
+    role: userToEdit.role,
+    password: '',
+    confirmPassword: ''
+  });
+  setIsEditModalOpen(true);
+};
+
+const handleSearch = async (e) => {
+  e.preventDefault();
+  if (searchQuery.trim()) {
+    try {
+      const result = await dispatch(searchUsers(searchQuery));
+      if (result.payload && Array.isArray(result.payload)) {
+        setActiveView('search');
+      } else if (result.payload && result.payload.results && Array.isArray(result.payload.results)) {
+        setActiveView('search');
+      }
+    } catch (error) {
+      console.error('Search error:', error);
+    }
+  }
+};
+
+const handleFilter = async () => {
+  const activeFilters = Object.entries(filterParams).reduce((acc, [key, value]) => {
+    if (value !== '') {
+      acc[key] = value;
+    }
+    return acc;
+  }, {});
+  
+  if (Object.keys(activeFilters).length > 0) {
+    try {
+      const result = await dispatch(filterUsers(activeFilters));
+      if (result.payload && result.payload.results && Array.isArray(result.payload.results)) {
+        setActiveView('filter');
+      } else if (result.payload && Array.isArray(result.payload)) {
+        setActiveView('filter');
+      }
+    } catch (error) {
+      console.error('Filter error:', error);
+    }
+  }
+};
+
+const handleClearFilters = () => {
+  setFilterParams({
+    role: '',
+    employment_type: '',
+    has_bike: ''
+  });
+  setSearchQuery('');
+  setActiveView('all');
+  dispatch(clearSearchResults());
+  dispatch(clearFilterResults());
+};
+
+const handleFilterChange = (e) => {
+  const { name, value } = e.target;
+  setFilterParams(prev => ({
+    ...prev,
+    [name]: value
+  }));
+};
+
+const handleDelete = (userId) => {
+  setUserToDelete(userId);
+  setShowDeleteConfirm(true);
+};
+
+const confirmDelete = async () => {
+  try {
+    await dispatch(deleteUser(userToDelete)).unwrap();
+    setShowDeleteConfirm(false);
+    setUserToDelete(null);
+    dispatch(getUsersList());
+  } catch (error) {
+    console.error('Error deleting user:', error);
+  }
+};
+
+const handleEditSubmit = async (e) => {
+  e.preventDefault();
+  
+  if (!validateForm()) {
+    return;
+  }
+  
+  const { confirmPassword, ...submitData } = formData;
+  
+  try {
+    await dispatch(updateUser({ 
+      userId: selectedUserForEdit.id, 
+      userData: submitData 
+    })).unwrap();
+    
+    setFormData({
+      user_name: '',
+      mobile_number: '',
+      role: '',
+      password: '',
+      confirmPassword: ''
+    });
+    setFormErrors({});
+    setIsEditModalOpen(false);
+    setSelectedUserForEdit(null);
+    
+    dispatch(getUsersList());
+    
+  } catch (error) {
+    console.error('Error updating user:', error);
+  }
+};
+
+const handleCloseEditModal = () => {
+  setIsEditModalOpen(false);
+  setSelectedUserForEdit(null);
+  setFormData({
+    user_name: '',
+    mobile_number: '',
+    role: '',
+    password: '',
+    confirmPassword: ''
+  });
+  setFormErrors({});
+  dispatch(clearUpdateError());
+};
 
   const getRoleBadgeColor = (role) => {
     switch (role) {
@@ -347,20 +502,115 @@ const UsersList = () => {
 
   return (
     <div className="p-6">
-      <div className="mb-6 flex justify-between items-center">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900">Users Management</h2>
-          <p className="text-gray-600">Manage all users in your system</p>
+      {/* Fixed Header Section */}
+      <div className="mb-6">
+        <div className="flex justify-between items-center mb-4">
+          <div>
+            <h2 className="text-2xl font-bold text-gray-900">Users Management</h2>
+            <p className="text-gray-600">Manage all users in your system</p>
+          </div>
+          <button
+            onClick={() => setIsCreateModalOpen(true)}
+            className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            <span>Create User</span>
+          </button>
         </div>
-        <button
-          onClick={() => setIsCreateModalOpen(true)}
-          className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-lg flex items-center space-x-2 transition-colors"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-          </svg>
-          <span>Create User</span>
-        </button>
+        
+        {/* Search and Filter Section */}
+        <div className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 mb-6">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            {/* Search Section */}
+            <div>
+              <form onSubmit={handleSearch} className="flex space-x-2">
+                <input
+                  type="text"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder="Search users..."
+                  className="flex-1 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                />
+                <button
+                  type="submit"
+                  disabled={isSearching}
+                  className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isSearching ? 'Searching...' : 'Search'}
+                </button>
+              </form>
+            </div>
+            
+            {/* Filter Section */}
+            <div className="flex flex-col sm:flex-row flex-wrap gap-2">
+              <select
+                name="role"
+                value={filterParams.role}
+                onChange={handleFilterChange}
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Roles</option>
+                {USER_ROLES.map((role) => (
+                  <option key={role.value} value={role.value}>
+                    {role.label}
+                  </option>
+                ))}
+              </select>
+              
+              <select
+                name="employment_type"
+                value={filterParams.employment_type}
+                onChange={handleFilterChange}
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Employment Types</option>
+                {EMPLOYMENT_TYPES.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
+              </select>
+              
+              <select
+                name="has_bike"
+                value={filterParams.has_bike}
+                onChange={handleFilterChange}
+                className="flex-1 min-w-0 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                <option value="">All Bike Status</option>
+                <option value="true">Has Bike</option>
+                <option value="false">No Bike</option>
+              </select>
+              
+              <div className="flex gap-2">
+                <button
+                  onClick={handleFilter}
+                  disabled={isFiltering}
+                  className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 whitespace-nowrap"
+                >
+                  {isFiltering ? 'Filtering...' : 'Filter'}
+                </button>
+                
+                <button
+                  onClick={handleClearFilters}
+                  className="px-4 py-2 bg-gray-600 text-white rounded-md hover:bg-gray-700 whitespace-nowrap"
+                >
+                  Clear
+                </button>
+              </div>
+            </div>
+          </div>
+          
+          {/* Active View Indicator */}
+          {activeView !== 'all' && (
+            <div className="mt-3 text-sm text-gray-600">
+              Showing {activeView === 'search' ? 'search' : 'filtered'} results 
+              ({displayUsers.length} {displayUsers.length === 1 ? 'user' : 'users'})
+            </div>
+          )}
+        </div>
       </div>
       
       {error && (
@@ -398,6 +648,18 @@ const UsersList = () => {
           </button>
         </div>
       )}
+
+      {deleteError && (
+        <div className="mb-4 bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
+          {deleteError}
+          <button
+            onClick={() => dispatch(clearDeleteError())}
+            className="ml-4 text-red-500 hover:text-red-700"
+          >
+            ×
+          </button>
+        </div>
+      )}
       
       <div className="bg-white rounded-lg shadow-sm border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
@@ -405,21 +667,25 @@ const UsersList = () => {
             <thead className="bg-gray-50">
               <tr>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">User Id</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Mobile</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Role</th>
-                <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {users.map((user) => (
-                <tr key={user.id} className="hover:bg-gray-50">
+              {Array.isArray(displayUsers) &&
+                displayUsers.map((user) => (
+                <tr 
+                  key={user.id} 
+                  className="hover:bg-gray-50 cursor-pointer"
+                  onClick={() => handleViewDetails(user.id)}
+                >
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
                     {user.user_name}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    {user.email}
+                    {user.user_id}
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
                     {user.mobile_number || 'N/A'}
@@ -429,28 +695,49 @@ const UsersList = () => {
                       {getRoleDisplayName(user.role)}
                     </span>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${
-                      user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                    }`}>
-                      {user.is_active ? 'Active' : 'Inactive'}
-                    </span>
-                  </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                    <button 
-                      onClick={() => handleViewDetails(user.id)}
-                      className="text-blue-600 hover:text-blue-900 mr-3"
-                    >
-                      View Details
-                    </button>
-                    <button 
-                      onClick={() => handleAddDetails(user.id)}
-                      className="text-green-600 hover:text-green-900 mr-3"
-                    >
-                      Add Details
-                    </button>
-                    <button className="text-orange-600 hover:text-orange-900 mr-3">Edit</button>
-                    <button className="text-red-600 hover:text-red-900">Delete</button>
+                    <div className="flex space-x-2">
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleViewDetails(user.id);
+                        }}
+                        className="text-blue-600 hover:text-blue-900 p-1 rounded hover:bg-blue-50"
+                        title="View Details"
+                      >
+                        <Eye size={16} />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleAddDetails(user.id);
+                        }}
+                        className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
+                        title="Add Details"
+                      >
+                        <UserPlus size={16} />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleEdit(user.id);
+                        }}
+                        className="text-orange-600 hover:text-orange-900 p-1 rounded hover:bg-orange-50"
+                        title="Edit"
+                      >
+                        <Edit size={16} />
+                      </button>
+                      <button 
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleDelete(user.id);
+                        }}
+                        className="text-red-600 hover:text-red-900 p-1 rounded hover:bg-red-50"
+                        title="Delete"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -494,26 +781,6 @@ const UsersList = () => {
                   />
                   {formErrors.user_name && (
                     <p className="mt-1 text-sm text-red-600">{formErrors.user_name}</p>
-                  )}
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    Email *
-                  </label>
-                  <input
-                    type="email"
-                    name="email"
-                    value={formData.email}
-                    onChange={handleInputChange}
-                    className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                      formErrors.email ? 'border-red-500' : 'border-gray-300'
-                    }`}
-                    placeholder="Enter email"
-                    disabled={isCreating}
-                  />
-                  {formErrors.email && (
-                    <p className="mt-1 text-sm text-red-600">{formErrors.email}</p>
                   )}
                 </div>
 
@@ -653,8 +920,8 @@ const UsersList = () => {
                     <p className="text-sm text-gray-900">{userDetails.user_name}</p>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
-                    <p className="text-sm text-gray-900">{userDetails.email}</p>
+                    <label className="block text-sm font-medium text-gray-700 mb-1">User Id</label>
+                    <p className="text-sm text-gray-900">HardCoded Add After Server Update</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
@@ -675,10 +942,6 @@ const UsersList = () => {
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Place</label>
                     <p className="text-sm text-gray-900">{userDetails.place || 'N/A'}</p>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">Main Area</label>
-                    <p className="text-sm text-gray-900">{userDetails.main_area || 'N/A'}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Employment Type</label>
@@ -708,16 +971,6 @@ const UsersList = () => {
                     <label className="block text-sm font-medium text-gray-700 mb-1">Created At</label>
                     <p className="text-sm text-gray-900">{userDetails.created_at ? new Date(userDetails.created_at).toLocaleDateString() : 'N/A'}</p>
                   </div>
-                  {userDetails.profile_image && (
-                    <div className="col-span-2">
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Profile Image</label>
-                      <img 
-                        src={userDetails.profile_image} 
-                        alt="Profile" 
-                        className="w-20 h-20 object-cover rounded-full border"
-                      />
-                      </div>
-                  )}
                   {userDetails.license_image && (
                     <div className="col-span-2">
                       <label className="block text-sm font-medium text-gray-700 mb-1">License Image</label>
@@ -820,22 +1073,6 @@ const UsersList = () => {
                       disabled={isUpdating}
                     />
                   </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Main Area
-                    </label>
-                    <input
-                      type="text"
-                      name="main_area"
-                      value={detailsFormData.main_area}
-                      onChange={handleDetailsInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter main area"
-                      disabled={isUpdating}
-                    />
-                  </div>
-
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">
                       Employment Type
@@ -854,20 +1091,6 @@ const UsersList = () => {
                         </option>
                       ))}
                     </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Profile Image
-                    </label>
-                    <input
-                      type="file"
-                      name="profile_image"
-                      onChange={handleDetailsInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      accept="image/*"
-                      disabled={isUpdating}
-                    />
                   </div>
 
                   <div>
@@ -952,6 +1175,190 @@ const UsersList = () => {
           </div>
         </div>
       )}
+      {/* Edit User Modal */}
+{isEditModalOpen && (
+  <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+      <div className="mt-3">
+        <div className="flex justify-between items-center mb-4">
+          <h3 className="text-lg font-medium text-gray-900">Edit User</h3>
+          <button
+            onClick={handleCloseEditModal}
+            className="text-gray-400 hover:text-gray-600"
+          >
+            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+        
+        <form onSubmit={handleEditSubmit}>
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Username *
+            </label>
+            <input
+              type="text"
+              name="user_name"
+              value={formData.user_name}
+              onChange={handleInputChange}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                formErrors.user_name ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="Enter username"
+              disabled={isUpdating}
+            />
+            {formErrors.user_name && (
+              <p className="mt-1 text-sm text-red-600">{formErrors.user_name}</p>
+            )}
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Mobile Number *
+            </label>
+            <input
+              type="tel"
+              name="mobile_number"
+              value={formData.mobile_number}
+              onChange={handleInputChange}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                formErrors.mobile_number ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="Enter mobile number"
+              disabled={isUpdating}
+            />
+            {formErrors.mobile_number && (
+              <p className="mt-1 text-sm text-red-600">{formErrors.mobile_number}</p>
+            )}
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Role *
+            </label>
+            <select
+              name="role"
+              value={formData.role}
+              onChange={handleInputChange}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                formErrors.role ? 'border-red-500' : 'border-gray-300'
+              }`}
+              disabled={isUpdating}
+            >
+              <option value="">Select a role</option>
+              {USER_ROLES.map((role) => (
+                <option key={role.value} value={role.value}>
+                  {role.label}
+                </option>
+              ))}
+            </select>
+            {formErrors.role && (
+              <p className="mt-1 text-sm text-red-600">{formErrors.role}</p>
+            )}
+          </div>
+
+          <div className="mb-4">
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              Password (leave blank to keep current)
+            </label>
+            <input
+              type="password"
+              name="password"
+              value={formData.password}
+              onChange={handleInputChange}
+              className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                formErrors.password ? 'border-red-500' : 'border-gray-300'
+              }`}
+              placeholder="Enter new password"
+              disabled={isUpdating}
+            />
+            {formErrors.password && (
+              <p className="mt-1 text-sm text-red-600">{formErrors.password}</p>
+            )}
+          </div>
+
+          {formData.password && (
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                Confirm Password *
+              </label>
+              <input
+                type="password"
+                name="confirmPassword"
+                value={formData.confirmPassword}
+                onChange={handleInputChange}
+                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                  formErrors.confirmPassword ? 'border-red-500' : 'border-gray-300'
+                }`}
+                placeholder="Confirm password"
+                disabled={isUpdating}
+              />
+              {formErrors.confirmPassword && (
+                <p className="mt-1 text-sm text-red-600">{formErrors.confirmPassword}</p>
+              )}
+            </div>
+          )}
+
+          <div className="flex space-x-3">
+            <button
+              type="button"
+              onClick={handleCloseEditModal}
+              className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              disabled={isUpdating}
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isUpdating}
+              className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
+            >
+              {isUpdating ? 'Updating...' : 'Update User'}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Delete Confirmation Modal */}
+{showDeleteConfirm && (
+  <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
+    <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+      <div className="mt-3">
+        <div className="flex justify-center">
+          <Trash2 className="text-red-600 w-12 h-12" />
+        </div>
+        <div className="mt-4 text-center">
+          <h3 className="text-lg font-medium text-gray-900">Delete User</h3>
+          <p className="mt-2 text-sm text-gray-500">
+            Are you sure you want to delete this user? This action cannot be undone.
+          </p>
+        </div>
+        <div className="flex space-x-3 mt-6">
+          <button
+            type="button"
+            onClick={() => setShowDeleteConfirm(false)}
+            className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+            disabled={isDeleting}
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            onClick={confirmDelete}
+            disabled={isDeleting}
+            className="flex-1 px-4 py-2 text-sm font-medium text-white bg-red-600 border border-transparent rounded-md hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500 disabled:opacity-50"
+          >
+            {isDeleting ? 'Deleting...' : 'Delete'}
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

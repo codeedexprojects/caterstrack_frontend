@@ -81,7 +81,7 @@ const Works = () => {
     place: '',
     district: '',
     date: '',
-    time: '',
+    reporting_time: '',
     work_type: '',
     no_of_boys_needed: '',
     attendees: '',
@@ -142,7 +142,7 @@ const Works = () => {
       place: work.place || '',
       district: work.district || '',
       date: work.date || '',
-      time: work.time || '',
+      reporting_time: work.reporting_time || '',
       work_type: work.work_type || '',
       no_of_boys_needed: work.no_of_boys_needed || '',
       attendees: work.attendees || '',
@@ -223,7 +223,7 @@ const Works = () => {
       place: '',
       district: '',
       date: '',
-      time: '',
+      reporting_time: '',
       work_type: '',
       no_of_boys_needed: '',
       attendees: '',
@@ -418,7 +418,7 @@ const Works = () => {
                 </div>
                 <div className="flex items-center gap-2">
                   <Clock className="h-4 w-4" />
-                  <span>{work.time}</span>
+                  <span>{work.reporting_time}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4" />
@@ -757,8 +757,8 @@ const Works = () => {
                     </label>
                     <input
                       type="time"
-                      name="time"
-                      value={formData.time}
+                      name="reporting_time"
+                      value={formData.reporting_time}
                       onChange={handleInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       required
