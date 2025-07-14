@@ -212,6 +212,16 @@ const Works = () => {
     }
   };
 
+  const handleAssignBoy = async (requestId) => {
+    try {
+      // This would need to be implemented in your API slice
+      // await dispatch(assignBoyToWork(requestId)).unwrap();
+      showToast('Boy assigned to work successfully!', 'success');
+    } catch (error) {
+      showToast(error.message || 'Failed to assign boy to work!', 'error');
+    }
+  };
+
   const handleCloseModal = () => {
     setShowModal(false);
     setIsEditing(false);
@@ -493,7 +503,7 @@ const Works = () => {
         </div>
       )}
 
-      {/* Work Requests Tab */}
+      {/* Work Management Tab */}
       {activeTab === 'requests' && (
         <div className="bg-white rounded-lg shadow-md">
           <div className="overflow-x-auto">
@@ -501,13 +511,13 @@ const Works = () => {
               <thead className="bg-gray-50">
                 <tr>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Customer
+                    Boy Details
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Event
+                    Work Details
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Date
+                    Date & Time
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Status
@@ -522,40 +532,129 @@ const Works = () => {
                   <tr key={request.id}>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm font-medium text-gray-900">{request.customer_name}</div>
-                        <div className="text-sm text-gray-500">{request.customer_mobile}</div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {request.boy?.user_name || 'N/A'}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {request.boy?.mobile_number || 'N/A'}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {request.boy?.place}, {request.boy?.district}
+                        </div>
+                        <div className="flex items-center gap-2 mt-1">
+                          {request.boy?.experienced && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                              Experienced
+                            </span>
+                          )}
+                          {request.boy?.has_bike && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              Has Bike
+                            </span>
+                          )}
+                          {request.boy?.has_license && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                              Licensed
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
                       <div>
-                        <div className="text-sm text-gray-900">{request.work_type}</div>
-                        <div className="text-sm text-gray-500">{request.place}</div>
+                        <div className="text-sm font-medium text-gray-900">
+                          {request.work?.Auditorium_name || 'Auditorium Not Specified'}
+                        </div>
+                        {request.work?.Catering_company && (
+                          <div className="text-sm text-gray-500">
+                            {request.work.Catering_company}
+                          </div>
+                        )}
+                        <div className="text-sm text-gray-500">
+                          {request.work?.place || 'N/A'}
+                        </div>
+                        <div className="text-sm text-gray-500">
+                          {request.work?.attendees || 0} attendees • {request.work?.no_of_boys_needed || 0} boys needed
+                        </div>
+                        {request.work?.location_url && (
+                          <div className="mt-1">
+                            <a
+                              href={request.work.location_url}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="text-blue-600 hover:text-blue-800 text-sm inline-flex items-center gap-1"
+                            >
+                              <ExternalLink className="h-3 w-3" />
+                              View Location
+                            </a>
+                          </div>
+                        )}
                       </div>
                     </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {request.date}
+                    <td className="px-6 py-4 whitespace-nowrap">
+                      <div className="text-sm text-gray-900">
+                        {request.work?.date || 'N/A'}
+                      </div>
+                      <div className="text-sm text-gray-500">
+                        {request.work?.reporting_time || 'N/A'}
+                      </div>
+                      <div className="text-sm text-gray-400 mt-1">
+                        Requested: {new Date(request.requested_at).toLocaleDateString()}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
-                        {getStatusIcon(request.status)}
-                        {request.status}
-                      </span>
+                      <div className="space-y-1">
+                        <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
+                          {getStatusIcon(request.status)}
+                          {request.status}
+                        </span>
+                        {request.assigned && (
+                          <div>
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
+                              Assigned
+                            </span>
+                          </div>
+                        )}
+                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                       {request.status === 'pending' && (
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => handleStatusUpdate(request.id, 'accepted')}
-                            className="text-green-600 hover:text-green-900 px-2 py-1 rounded hover:bg-green-50"
-                          >
-                            Accept
-                          </button>
-                          <button
-                            onClick={() => handleStatusUpdate(request.id, 'rejected')}
-                            className="text-red-600 hover:text-red-900 px-2 py-1 rounded hover:bg-red-50"
-                          >
-                            Reject
-                          </button>
+                        <div className="flex flex-col gap-2">
+                          <div className="flex gap-2">
+                            <button
+                              onClick={() => handleStatusUpdate(request.id, 'accepted')}
+                              className="text-green-600 hover:text-green-900 px-3 py-1 rounded hover:bg-green-50 text-sm border border-green-200"
+                            >
+                              Accept
+                            </button>
+                            <button
+                              onClick={() => handleStatusUpdate(request.id, 'rejected')}
+                              className="text-red-600 hover:text-red-900 px-3 py-1 rounded hover:bg-red-50 text-sm border border-red-200"
+                            >
+                              Reject
+                            </button>
+                          </div>
+                          {!request.assigned && (
+                            <button
+                              onClick={() => handleAssignBoy(request.id)}
+                              className="text-blue-600 hover:text-blue-900 px-3 py-1 rounded hover:bg-blue-50 text-sm border border-blue-200"
+                            >
+                              Assign
+                            </button>
+                          )}
+                        </div>
+                      )}
+                      {request.status === 'accepted' && !request.assigned && (
+                        <button
+                          onClick={() => handleAssignBoy(request.id)}
+                          className="text-blue-600 hover:text-blue-900 px-3 py-1 rounded hover:bg-blue-50 text-sm border border-blue-200"
+                        >
+                          Assign
+                        </button>
+                      )}
+                      {request.comment && (
+                        <div className="mt-2 text-xs text-gray-500">
+                          Comment: {request.comment}
                         </div>
                       )}
                     </td>
@@ -564,6 +663,17 @@ const Works = () => {
               </tbody>
             </table>
           </div>
+          
+          {/* Empty state */}
+          {workRequests.length === 0 && (
+            <div className="text-center py-12">
+              <Users className="mx-auto h-12 w-12 text-gray-400" />
+              <h3 className="mt-2 text-sm font-medium text-gray-900">No work requests</h3>
+              <p className="mt-1 text-sm text-gray-500">
+                No boys have requested work assignments yet.
+              </p>
+            </div>
+          )}
         </div>
       )}
 
@@ -779,11 +889,10 @@ const Works = () => {
                       required
                     >
                       <option value="">Select work type</option>
-                      <option value="wedding">Wedding</option>
-                      <option value="birthday">Birthday</option>
-                      <option value="corporate">Corporate</option>
-                      <option value="festival">Festival</option>
-                      <option value="other">Other</option>
+                      <option value="Break_Fast">Break Fast</option>
+                      <option value="Lunch">Lunch</option>
+                      <option value="Dinner">Dinner</option>
+                      <option value="others">Other</option>
                     </select>
                   </div>
                   
