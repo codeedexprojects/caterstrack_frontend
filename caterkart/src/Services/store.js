@@ -3,14 +3,15 @@ import adminAuthReducer from './Api/Admin/AdminAuthSlice';
 import faresReducer from './Api/Admin/FareSlice'
 import usersReducer from './Api/Admin/UserSlice'
 import workReducer from './Api/Admin/WorkSlice'
+import SubAdminAuthReducer from './Api/SubAdmin/SubLoginSlice'
 
 const store = configureStore({
   reducer: {
     adminAuth: adminAuthReducer,
     fares: faresReducer,
     users: usersReducer,
-    work: workReducer
-
+    work: workReducer,
+    subAdminAuth : SubAdminAuthReducer
   },
 });
 
