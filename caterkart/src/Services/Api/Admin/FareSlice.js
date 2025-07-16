@@ -63,9 +63,7 @@ export const createFare = createAsyncThunk(
       
       return response.data;
     } catch (error) {
-      // Handle 401 unauthorized errors
       if (error.response?.status === 401) {
-        // Token might be expired, logout user
         dispatch({ type: 'adminAuth/logoutAdmin' });
         return rejectWithValue('Session expired. Please login again.');
       }
@@ -80,10 +78,9 @@ export const createFare = createAsyncThunk(
   }
 );
 
-// Update fare
 export const updateFare = createAsyncThunk(
   'fares/updateFare',
-  async ({ id, fareData }, { rejectWithValue, getState, dispatch }) => {
+  async ({ fare_type, fareData }, { rejectWithValue, getState, dispatch }) => {
     try {
       const { adminAuth } = getState();
       
@@ -92,7 +89,7 @@ export const updateFare = createAsyncThunk(
       }
 
       const response = await axios.put(
-        `https://catershub.pythonanywhere.com/admin_panel/base-fares/${id}/`,
+        `https://catershub.pythonanywhere.com/admin_panel/base-fares/update/${fare_type}/`,
         fareData,
         {
           headers: {
@@ -118,7 +115,6 @@ export const updateFare = createAsyncThunk(
   }
 );
 
-// Delete fare
 export const deleteFare = createAsyncThunk(
   'fares/deleteFare',
   async (id, { rejectWithValue, getState, dispatch }) => {
@@ -130,7 +126,7 @@ export const deleteFare = createAsyncThunk(
       }
 
       await axios.delete(
-        `https://catershub.pythonanywhere.com/admin_panel/base-fares/${id}/`,
+        `https://catershub.pythonanywhere.com/admin_panel/basefare/${id}/delete/`,
         {
           headers: {
             'Authorization': `Bearer ${adminAuth.tokens.access}`

@@ -40,6 +40,43 @@ export const fetchWorks = createAsyncThunk(
   }
 );
 
+export const fetchUpcomingWorks = createAsyncThunk(
+  'work/fetchUpcomingWorks',
+  async (_, { rejectWithValue, getState, dispatch }) => {
+    try {
+      const { adminAuth } = getState();
+      
+      // Check if user is authenticated
+      if (!adminAuth.tokens?.access) {
+        return rejectWithValue('Not authenticated');
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/admin_panel/catering/upcoming/`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminAuth.tokens.access}`
+        },
+      });
+      
+      // Handle 401 unauthorized errors
+      if (response.status === 401) {
+        dispatch({ type: 'adminAuth/logoutAdmin' });
+        return rejectWithValue('Session expired. Please login again.');
+      }
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch upcoming works');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
 export const createWork = createAsyncThunk(
   'work/createWork',
   async (workData, { rejectWithValue, getState, dispatch }) => {
@@ -343,6 +380,7 @@ export const fetchAssignedBoys = createAsyncThunk(
 // Initial state
 const initialState = {
   works: [],
+  upcomingWorks: [],
   workRequests: [],
   assignedBoys: {},
   loading: false,
@@ -359,6 +397,9 @@ const workSlice = createSlice({
     },
     clearWorks: (state) => {
       state.works = [];
+    },
+    clearUpcomingWorks: (state) => {
+      state.upcomingWorks = [];
     },
     clearWorkRequests: (state) => {
       state.workRequests = [];
@@ -379,6 +420,20 @@ const workSlice = createSlice({
         state.works = action.payload;
       })
       .addCase(fetchWorks.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      
+      // Fetch upcoming works
+      .addCase(fetchUpcomingWorks.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchUpcomingWorks.fulfilled, (state, action) => {
+        state.loading = false;
+        state.upcomingWorks = action.payload;
+      })
+      .addCase(fetchUpcomingWorks.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -496,5 +551,5 @@ const workSlice = createSlice({
   },
 });
 
-export const { clearError, clearWorks, clearWorkRequests, clearWorkState } = workSlice.actions;
+export const { clearError, clearWorks, clearUpcomingWorks, clearWorkRequests, clearWorkState } = workSlice.actions;
 export default workSlice.reducer;
