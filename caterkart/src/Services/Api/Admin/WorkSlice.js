@@ -227,9 +227,9 @@ export const deleteWork = createAsyncThunk(
   }
 );
 
-export const fetchWorkRequests = createAsyncThunk(
+export const fetchWorkRequestsByWork = createAsyncThunk(
   'work/fetchWorkRequests',
-  async (_, { rejectWithValue, getState, dispatch }) => {
+  async (id, { rejectWithValue, getState, dispatch }) => {
     try {
       const { adminAuth } = getState();
       
@@ -238,7 +238,7 @@ export const fetchWorkRequests = createAsyncThunk(
         return rejectWithValue('Not authenticated');
       }
       
-      const response = await fetch(`${API_BASE_URL}/admin_panel/work-requests/`, {
+      const response = await fetch(`${API_BASE_URL}/admin_panel/work-join-requests/${id}/`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -264,27 +264,28 @@ export const fetchWorkRequests = createAsyncThunk(
   }
 );
 
-export const updateWorkRequestStatus = createAsyncThunk(
-  'work/updateWorkRequestStatus',
-  async ({ id, status }, { rejectWithValue, getState, dispatch }) => {
+export const updateWorkRequestStatusAndAssign = createAsyncThunk(
+  'work/updateWorkRequestStatusAndAssign',
+  async ({ id, status, assigned }, { rejectWithValue, getState, dispatch }) => {
     try {
       const { adminAuth } = getState();
       
-      // Check if user is authenticated
       if (!adminAuth.tokens?.access) {
         return rejectWithValue('Not authenticated');
       }
       
+      const body = { status };
+      if (assigned) body.assigned = assigned;
+      
       const response = await fetch(`${API_BASE_URL}/admin_panel/work-request/${id}/status-update/`, {
-        method: 'PUT',
+        method: 'patch',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminAuth.tokens.access}`,
         },
-        body: JSON.stringify({ status }),
+        body: JSON.stringify(body),
       });
       
-      // Handle 401 unauthorized errors
       if (response.status === 401) {
         dispatch({ type: 'adminAuth/logoutAdmin' });
         return rejectWithValue('Session expired. Please login again.');
@@ -295,20 +296,56 @@ export const updateWorkRequestStatus = createAsyncThunk(
       }
       
       const data = await response.json();
-      return { id, status, data };
+      return { id, status, assigned, data };
     } catch (error) {
       return rejectWithValue(error.message);
     }
   }
 );
 
+export const assignSupervisors = createAsyncThunk(
+  'work/assignSupervisors',
+  async ({ work, assignments }, { rejectWithValue, getState, dispatch }) => {
+    try {
+      const { adminAuth } = getState();
+      
+      if (!adminAuth.tokens?.access) {
+        return rejectWithValue('Not authenticated');
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/admin_panel/assign-supervisors/`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminAuth.tokens.access}`,
+        },
+        body: JSON.stringify({ work, assignments }),
+      });
+      
+      if (response.status === 401) {
+        dispatch({ type: 'adminAuth/logoutAdmin' });
+        return rejectWithValue('Session expired. Please login again.');
+      }
+      
+      if (!response.ok) {
+        throw new Error('Failed to assign supervisors');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+// Update the existing assignBoyToWork to handle array of boys
 export const assignBoyToWork = createAsyncThunk(
   'work/assignBoyToWork',
   async ({ work, boy }, { rejectWithValue, getState, dispatch }) => {
     try {
       const { adminAuth } = getState();
       
-      // Check if user is authenticated
       if (!adminAuth.tokens?.access) {
         return rejectWithValue('Not authenticated');
       }
@@ -322,7 +359,6 @@ export const assignBoyToWork = createAsyncThunk(
         body: JSON.stringify({ work, boy }),
       });
       
-      // Handle 401 unauthorized errors
       if (response.status === 401) {
         dispatch({ type: 'adminAuth/logoutAdmin' });
         return rejectWithValue('Session expired. Please login again.');
@@ -484,32 +520,35 @@ const workSlice = createSlice({
       })
       
       // Fetch work requests
-      .addCase(fetchWorkRequests.pending, (state) => {
+      .addCase(fetchWorkRequestsByWork.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(fetchWorkRequests.fulfilled, (state, action) => {
+      .addCase(fetchWorkRequestsByWork.fulfilled, (state, action) => {
         state.loading = false;
         state.workRequests = action.payload;
       })
-      .addCase(fetchWorkRequests.rejected, (state, action) => {
+      .addCase(fetchWorkRequestsByWork.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
       
       // Update work request status
-      .addCase(updateWorkRequestStatus.pending, (state) => {
+      .addCase(updateWorkRequestStatusAndAssign.pending, (state) => {
         state.loading = true;
         state.error = null;
       })
-      .addCase(updateWorkRequestStatus.fulfilled, (state, action) => {
+      .addCase(updateWorkRequestStatusAndAssign.fulfilled, (state, action) => {
         state.loading = false;
         const index = state.workRequests.findIndex(request => request.id === action.payload.id);
         if (index !== -1) {
           state.workRequests[index].status = action.payload.status;
+          if (action.payload.assigned) {
+            state.workRequests[index].assigned = action.payload.assigned;
+          }
         }
       })
-      .addCase(updateWorkRequestStatus.rejected, (state, action) => {
+      .addCase(updateWorkRequestStatusAndAssign.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
       })
@@ -547,7 +586,19 @@ const workSlice = createSlice({
       .addCase(fetchAssignedBoys.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-      });
+      })
+      .addCase(assignSupervisors.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(assignSupervisors.fulfilled, (state, action) => {
+        state.loading = false;
+        // Handle supervisor assignment response
+      })
+      .addCase(assignSupervisors.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
   },
 });
 
