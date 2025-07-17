@@ -43,7 +43,7 @@ export const updateUserDetails = createAsyncThunk(
   async ({ userId, userData }, { rejectWithValue, getState }) => {
     try {
       const { adminAuth } = getState();
-      const response = await axios.post(`https://catershub.pythonanywhere.com/users/users/${userId}/admin-update/`, userData, {
+      const response = await axios.patch(`https://catershub.pythonanywhere.com/users/users/${userId}/admin-update/`, userData, {
         headers: {
           'Authorization': `Bearer ${adminAuth.tokens?.access}`,
           'Content-Type': 'application/json'
