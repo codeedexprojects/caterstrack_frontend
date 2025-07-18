@@ -30,7 +30,12 @@ import {
   assignSupervisors,
   assignBoyToWork,
   publishWork,
-  fetchAssignedUsers  // Add this line
+  fetchAssignedUsers,
+  setSelectedWork,
+  setShowDetailModal,
+  setShowSupervisorModal,
+  setShowBoyModal,
+  clearSelectedWork
 } from '../../Services/Api/Admin/WorkSlice';
 
 import { getUsersList } from '../../Services/Api/Admin/UserSlice';
@@ -40,7 +45,7 @@ const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
-    }, 4000);
+    }, 5000); // Increased timeout for better UX
     return () => clearTimeout(timer);
   }, [onClose]);
 
@@ -58,9 +63,9 @@ const Toast = ({ message, type, onClose }) => {
   };
 
   return (
-    <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${getToastStyles()} animate-slide-in`}>
-      <span>{message}</span>
-      <button onClick={onClose} className="ml-2 hover:bg-white hover:bg-opacity-20 rounded p-1">
+    <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${getToastStyles()} animate-slide-in max-w-sm`}>
+      <span className="text-sm">{message}</span>
+      <button onClick={onClose} className="ml-2 hover:bg-white hover:bg-opacity-20 rounded p-1 flex-shrink-0">
         <X className="h-4 w-4" />
       </button>
     </div>
@@ -69,20 +74,26 @@ const Toast = ({ message, type, onClose }) => {
 
 const Works = () => {
   const dispatch = useDispatch();
-  const { works, workRequests, assignedUsers, loading, error } = useSelector(state => state.work);
+  const { 
+    works, 
+    workRequests, 
+    assignedUsers, 
+    loading, 
+    error,
+    selectedWork,
+    showDetailModal,
+    showSupervisorModal,
+    showBoyModal
+  } = useSelector(state => state.work);
   const { users } = useSelector(state => state.users);
   
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentWork, setCurrentWork] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedWork, setSelectedWork] = useState(null);
   const [publishingWorkId, setPublishingWorkId] = useState(null);
   const [toast, setToast] = useState(null);
-  const [showSupervisorModal, setShowSupervisorModal] = useState(false);
   const [selectedSupervisors, setSelectedSupervisors] = useState([]);
   const [availableSupervisors, setAvailableSupervisors] = useState([]);
-  const [showBoyModal, setShowBoyModal] = useState(false);
   const [selectedBoys, setSelectedBoys] = useState([]);
   const [availableBoys, setAvailableBoys] = useState([]);
   
@@ -124,6 +135,35 @@ const Works = () => {
     setAvailableSupervisors(supervisors);
   }, [users]);
 
+
+  useEffect(() => {
+  if (users.length > 0 && assignedUsers.users) {
+    // Filter out already assigned supervisors
+    const assignedSupervisorIds = assignedUsers.users
+      .filter(user => user.role === 'supervisor')
+      .map(user => user.id);
+    
+    const unassignedSupervisors = users.filter(user => 
+      user.role === 'supervisor' && !assignedSupervisorIds.includes(user.id)
+    );
+    setAvailableSupervisors(unassignedSupervisors);
+    
+    // Filter out already assigned boys
+    const assignedBoyIds = assignedUsers.users
+      .filter(user => user.role === 'boys')
+      .map(user => user.id);
+    
+    const unassignedBoys = users.filter(user => 
+      user.role === 'boys' && !assignedBoyIds.includes(user.id)
+    );
+    setAvailableBoys(unassignedBoys);
+  } else {
+    // If no assigned users data, show all users
+    setAvailableSupervisors(users.filter(user => user.role === 'supervisor'));
+    setAvailableBoys(users.filter(user => user.role === 'boys'));
+  }
+}, [users, assignedUsers.users]);
+
   // Toast functions
   const showToast = (message, type = 'info') => {
     setToast({ message, type });
@@ -141,63 +181,74 @@ const Works = () => {
     }));
   };
 
-  const handleWorkClick = async (work) => {
-    setSelectedWork(work);
+const handleWorkClick = async (work) => {
+  dispatch(setSelectedWork(work));
+  dispatch(setShowDetailModal(true));
+  
+  try {
+    // Load assigned users first
     await dispatch(fetchAssignedUsers(work.id));
-    setShowDetailModal(true);
-    try {
-      await dispatch(fetchWorkRequestsByWork(work.id));
-    } catch (error) {
-      showToast('Failed to load work data', 'error');
-    }
-  };
+    
+    // Then load work requests
+    await dispatch(fetchWorkRequestsByWork(work.id));
+    
+  } catch (error) {
+    console.error('Failed to load work data:', error);
+    showToast('Failed to load work data', 'error');
+  }
+};
 
-  const handleAssignSupervisors = async () => {
-    if (!selectedWork || selectedSupervisors.length === 0) {
-      showToast('Please select at least one supervisor', 'error');
-      return;
-    }
+const handleAssignSupervisors = async () => {
+  if (!selectedWork || selectedSupervisors.length === 0) {
+    showToast('Please select at least one supervisor', 'error');
+    return;
+  }
 
-    try {
-      await dispatch(assignSupervisors({
-        work: selectedWork.id,
-        assignments: selectedSupervisors.map(id => ({ supervisor_id: id }))
-      })).unwrap();
-      showToast('Supervisors assigned successfully!', 'success');
-      setShowSupervisorModal(false);
-      setSelectedSupervisors([]);
-    } catch (error) {
-      showToast(error.message || 'Failed to assign supervisors', 'error');
-    }
-  };
-
-  const handleAssignBoys = async () => {
-    if (!selectedWork || selectedBoys.length === 0) {
-      showToast('Please select at least one boy', 'error');
-      return;
-    }
-
-    const payload = {
+  try {
+    const result = await dispatch(assignSupervisors({
       work: selectedWork.id,
-      boys: selectedBoys  // 🔁 renamed to match thunk parameter
-    };
+      assignments: selectedSupervisors.map(id => ({ supervisor_id: id }))
+    })).unwrap();
+    
+    showToast('Supervisors assigned successfully!', 'success');
+    handleCloseSupervisorModal();
+    
+    // Refresh assigned users and work requests
+    await dispatch(fetchAssignedUsers(selectedWork.id));
+    await dispatch(fetchWorkRequestsByWork(selectedWork.id));
+    
+  } catch (error) {
+    console.error('Supervisor assignment error:', error);
+    showToast(error.message || error || 'Failed to assign supervisors', 'error');
+  }
+};
 
-    console.log("Dispatching assignBoyToWork with payload:", payload);
+const handleAssignBoys = async () => {
+  if (!selectedWork || selectedBoys.length === 0) {
+    showToast('Please select at least one boy', 'error');
+    return;
+  }
 
-    try {
-      const response = await dispatch(assignBoyToWork(payload)).unwrap();
-
-      console.log("API Success Response:", response);
-      showToast('Boys assigned successfully!', 'success');
-      setShowBoyModal(false);
-      setSelectedBoys([]);
-      await dispatch(fetchAssignedUsers(selectedWork.id));
-    } catch (error) {
-      console.error("Dispatch error:", error); // 🔍 clearer debugging
-      showToast(error || 'Failed to assign boys', 'error');
-    }
+  // This now directly sends an array of boy IDs, e.g., [3, 5]
+  const payload = {
+    work: selectedWork.id,
+    boys: selectedBoys,
   };
 
+  try {
+    const result = await dispatch(assignBoyToWork(payload)).unwrap();
+    showToast('Boys assigned successfully!', 'success');
+    handleCloseBoyModal();
+
+    // Refresh data
+    await dispatch(fetchAssignedUsers(selectedWork.id));
+    await dispatch(fetchWorkRequestsByWork(selectedWork.id));
+
+  } catch (error) {
+    console.error('Boy assignment error:', error);
+    showToast(error.message || error || 'Failed to assign boys', 'error');
+  }
+};
 
   // Handle boy assignment (reject or assign)
   const handleBoyAction = async (requestId, action) => {
@@ -343,6 +394,28 @@ const Works = () => {
       remarks: '',
       about_work: ''
     });
+  };
+
+  const handleCloseDetailModal = () => {
+    dispatch(clearSelectedWork());
+  };
+
+  const handleOpenSupervisorModal = () => {
+    dispatch(setShowSupervisorModal(true));
+  };
+
+  const handleCloseSupervisorModal = () => {
+    dispatch(setShowSupervisorModal(false));
+    setSelectedSupervisors([]);
+  };
+
+  const handleOpenBoyModal = () => {
+    dispatch(setShowBoyModal(true));
+  };
+
+  const handleCloseBoyModal = () => {
+    dispatch(setShowBoyModal(false));
+    setSelectedBoys([]);
   };
 
 
@@ -895,28 +968,28 @@ const Works = () => {
 
 {/* Work Details Modal */}
 {showDetailModal && selectedWork && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-lg p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-      <div className="flex justify-between items-center mb-6">
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-            <Building className="h-6 w-6 text-blue-600" />
-            {selectedWork.Auditorium_name || 'Work Details'}
-          </h2>
-          {selectedWork.Catering_company && (
-            <p className="text-lg text-gray-600 flex items-center gap-2 mt-1">
-              <ChefHat className="h-5 w-5 text-orange-600" />
-              {selectedWork.Catering_company}
-            </p>
-          )}
-        </div>
-        <button
-          onClick={() => setShowDetailModal(false)}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <X className="h-6 w-6" />
-        </button>
-      </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-lg p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-6">
+              <div>
+              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+                <Building className="h-6 w-6 text-blue-600" />
+                {selectedWork.Auditorium_name || 'Work Details'}
+              </h2>
+              {selectedWork.Catering_company && (
+                <p className="text-lg text-gray-600 flex items-center gap-2 mt-1">
+                  <ChefHat className="h-5 w-5 text-orange-600" />
+                  {selectedWork.Catering_company}
+                </p>
+              )}
+            </div>
+              <button
+                onClick={handleCloseDetailModal} // Updated
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
 
       {/* Work Information */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -1000,21 +1073,21 @@ const Works = () => {
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Supervisor Assignment</h3>
           <div className="flex gap-2">
-            <button
-              onClick={() => setShowBoyModal(true)}
-              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Add Boy
-            </button>
-            <button
-              onClick={() => setShowSupervisorModal(true)}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-            >
-              <Plus className="h-4 w-4" />
-              Assign Supervisors
-            </button>
-          </div>
+              <button
+                onClick={handleOpenBoyModal} // Updated
+                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Add Boy
+              </button>
+              <button
+                onClick={handleOpenSupervisorModal} // Updated
+                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+              >
+                <Plus className="h-4 w-4" />
+                Assign Supervisors
+              </button>
+            </div>
         </div>
       </div>
 
@@ -1141,17 +1214,17 @@ const Works = () => {
 
 {/* Boy Assignment Modal */}
 {showBoyModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
-    <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Assign Boys</h3>
-        <button
-          onClick={() => setShowBoyModal(false)}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-lg font-semibold text-gray-900">Assign Boys</h3>
+              <button
+                onClick={handleCloseBoyModal} // Updated
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-5 w-5" />
+              </button>
+            </div>
       
       <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
         {availableBoys.length > 0 ? (
@@ -1195,72 +1268,82 @@ const Works = () => {
         )}
       </div>
       
-      <div className="flex justify-end gap-2">
-        <button
-          onClick={() => setShowBoyModal(false)}
-          className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleAssignBoys}
-          disabled={selectedBoys.length === 0}
-          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Assign Boys ({selectedBoys.length})
-        </button>
-      </div>
+            <div className="flex justify-end gap-2">
+            <button
+              onClick={handleCloseBoyModal} // Updated
+              className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleAssignBoys}
+              disabled={selectedBoys.length === 0}
+              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Assign Boys ({selectedBoys.length})
+            </button>
+          </div>
     </div>
   </div>
 )}
 
 {/* Supervisor Assignment Modal */}
 {showSupervisorModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
-    <div className="bg-white rounded-lg p-6 w-full max-w-md">
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+    <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-semibold text-gray-900">Assign Supervisors</h3>
         <button
-          onClick={() => setShowSupervisorModal(false)}
+          onClick={handleCloseSupervisorModal}
           className="text-gray-500 hover:text-gray-700"
         >
           <X className="h-5 w-5" />
         </button>
       </div>
-      
-      <div className="space-y-3 mb-4">
-        {/* You'll need to populate availableSupervisors from your API */}
-        {availableSupervisors.map((supervisor) => (
-          <label key={supervisor.id} className="flex items-center">
-            <input
-              type="checkbox"
-              checked={selectedSupervisors.includes(supervisor.id)}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setSelectedSupervisors([...selectedSupervisors, supervisor.id]);
-                } else {
-                  setSelectedSupervisors(selectedSupervisors.filter(id => id !== supervisor.id));
-                }
-              }}
-              className="mr-2"
-            />
-            <span className="text-sm text-gray-700">{supervisor.user_name}</span>
-          </label>
-        ))}
+
+      <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+        {availableSupervisors.length > 0 ? (
+          availableSupervisors.map((supervisor) => (
+            <label key={supervisor.id} className="flex items-center p-2 hover:bg-gray-50 rounded">
+              <input
+                type="checkbox"
+                checked={selectedSupervisors.includes(supervisor.id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedSupervisors([...selectedSupervisors, supervisor.id]);
+                  } else {
+                    setSelectedSupervisors(selectedSupervisors.filter(id => id !== supervisor.id));
+                  }
+                }}
+                className="mr-3"
+              />
+              <div className="flex-1">
+                <span className="text-sm font-medium text-gray-700">{supervisor.user_name}</span>
+                <div className="text-xs text-gray-500">
+                  {supervisor.mobile_number && <span>{supervisor.mobile_number}</span>}
+                  {supervisor.place && <span> • {supervisor.place}</span>}
+                </div>
+              </div>
+            </label>
+          ))
+        ) : (
+          <p className="text-sm text-gray-500 text-center py-4">No supervisors available</p>
+        )}
       </div>
-      
+
       <div className="flex justify-end gap-2">
         <button
-          onClick={() => setShowSupervisorModal(false)}
+          onClick={handleCloseSupervisorModal}
           className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
         >
           Cancel
         </button>
         <button
           onClick={handleAssignSupervisors}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
+          disabled={selectedSupervisors.length === 0}
+          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Assign
+          Assign Supervisors ({selectedSupervisors.length})
         </button>
       </div>
     </div>

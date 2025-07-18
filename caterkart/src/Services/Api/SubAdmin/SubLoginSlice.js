@@ -235,6 +235,8 @@ const initialState = {
     error: null,
     success: false,
   },
+  selectedWork: null,
+  showAttendanceModal: false,
 };
 
 const subAdminAuthSlice = createSlice({
@@ -313,6 +315,16 @@ const subAdminAuthSlice = createSlice({
       state.attendanceRating.error = null;
       state.attendanceRating.success = false;
     },
+    setSelectedWork: (state, action) => {
+      state.selectedWork = action.payload;
+    },
+    clearSelectedWork: (state) => {
+      state.selectedWork = null;
+    },
+    toggleAttendanceModal: (state, action) => {
+      state.showAttendanceModal = action.payload;
+    },
+
   },
   extraReducers: (builder) => {
     builder
@@ -468,16 +480,20 @@ const subAdminAuthSlice = createSlice({
   },
 });
 
-export const { 
-  logoutSubAdmin, 
-  setAuthState, 
-  clearAuthError, 
+export const {
+  logoutSubAdmin,
+  setAuthState,
+  clearAuthError,
   clearUserCreationState,
   clearUserEditState,
   clearUsersListError,
   clearCateringWorkError,
   clearAssignedUsersError,
-  clearAttendanceRatingState
+  clearAttendanceRatingState,
+  setSelectedWork,
+  clearSelectedWork,
+  toggleAttendanceModal
 } = subAdminAuthSlice.actions;
+
 
 export default subAdminAuthSlice.reducer;

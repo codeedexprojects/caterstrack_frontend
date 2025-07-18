@@ -10,7 +10,6 @@ const SubAdminSidebar = ({ activeSection, setActiveSection, sidebarOpen, setSide
 
   const sidebarItems = [
     { id: 'sub-dashboard', label: 'Dashboard', icon: Home, path: '/subadmin/sub-dashboard' },
-    { id: 'create-user', label: 'Create User', icon: UserPlus, path: '/subadmin/create-user' },
     { id: 'users', label: 'Users', icon: Users, path: '/subadmin/create-user' },
     { id: 'catering-works', label: 'Catering Works', icon: Briefcase, path: '/subadmin/catering-works' },
   ];

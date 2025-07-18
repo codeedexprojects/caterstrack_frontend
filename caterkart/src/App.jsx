@@ -12,6 +12,7 @@ import SubAdminLogin from './Pages/SubAdmin/SubAdminLogin';
 import SubAdminHome from './Pages/SubAdmin/SubAdminHome';
 import SubAdminDashboard from './Pages/SubAdmin/dashboard';
 import CreateUser from './Components/SubAdmin/User';
+import WorkAnalytics from './Components/Admin/WorkAnalytics';
 import CateringWorks from './Components/SubAdmin/CateringWorks';
 
 import { AdminRoute, SubAdminRoute } from './PrivateRoute';
@@ -32,6 +33,7 @@ const App = () => {
             <Route path="users" element={<UsersList />} />
             <Route path="fares" element={<FaresList />} />
             <Route path="works" element={<Works />} />
+            <Route path="work-analytics" element={<WorkAnalytics />} />
           </Route>
         </Route>
 

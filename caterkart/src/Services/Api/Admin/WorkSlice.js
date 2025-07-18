@@ -472,6 +472,121 @@ export const fetchAssignedUsers = createAsyncThunk(
   }
 );
 
+
+export const fetchAdminStats = createAsyncThunk(
+  'work/fetchAdminStats',
+  async (_, { rejectWithValue, getState, dispatch }) => {
+    try {
+      const { adminAuth } = getState();
+      
+      // Check if user is authenticated
+      if (!adminAuth.tokens?.access) {
+        return rejectWithValue('Not authenticated');
+      }
+      
+      const response = await fetch(`${API_BASE_URL}/admin_panel/admin/stats/`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminAuth.tokens.access}`
+        },
+      });
+      
+      // Handle 401 unauthorized errors
+      if (response.status === 401) {
+        dispatch({ type: 'adminAuth/logoutAdmin' });
+        return rejectWithValue('Session expired. Please login again.');
+      }
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch admin stats');
+      }
+      
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+
+export const getWorkAnalyticsList = createAsyncThunk(
+  'workAnalytics/getList',
+  async (_, { rejectWithValue, getState, dispatch }) => {
+    try {
+      const { adminAuth } = getState();
+      const token = adminAuth.tokens?.access;
+
+      if (!token) {
+        return rejectWithValue('Not authenticated');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin_panel/work-profit-loss/`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) {
+        dispatch({ type: 'adminAuth/logoutAdmin' });
+        return rejectWithValue('Session expired. Please login again.');
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch analytics list');
+      }
+
+      const data = await response.json();
+      return data;
+
+    } catch (err) {
+      return rejectWithValue(err.message);
+    }
+  }
+);
+
+export const getWorkAnalyticsDetails = createAsyncThunk(
+  'workAnalytics/getDetails',
+  async (workId, { rejectWithValue, getState, dispatch }) => {
+    try {
+      const { adminAuth } = getState();
+      const token = adminAuth.tokens?.access;
+
+      if (!token) {
+        return rejectWithValue('Not authenticated');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin_panel/work/${workId}/profit-loss/`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) {
+        dispatch({ type: 'adminAuth/logoutAdmin' });
+        return rejectWithValue('Session expired. Please login again.');
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch work detail');
+      }
+
+      const data = await response.json();
+      return data;
+
+    } catch (err) {
+      return rejectWithValue(err.message);
+    }
+  }
+);
+
+
+
 // Initial state
 const initialState = {
   works: [],
@@ -481,6 +596,19 @@ const initialState = {
   loading: false,
   error: null,
   assignedUsers: [],
+  adminStats: {
+    total_users: 0,
+    total_works_completed: 0,
+    total_pending_works: 0,
+    total_pending_join_requests: 0
+  },
+  selectedWork: null,
+  showDetailModal: false,
+  showSupervisorModal: false,
+  showBoyModal: false,
+  analyticsList: [],
+  analyticsDetails: null,
+
 };
 
 // Create slice
@@ -502,6 +630,23 @@ const workSlice = createSlice({
     },
     clearWorkState: (state) => {
       return initialState;
+    },
+    setSelectedWork: (state, action) => {
+      state.selectedWork = action.payload;
+    },
+    setShowSupervisorModal: (state, action) => {
+      state.showSupervisorModal = action.payload;
+    },
+    
+    setShowBoyModal: (state, action) => {
+      state.showBoyModal = action.payload;
+    },
+    setShowDetailModal: (state, action) => {
+      state.showDetailModal = action.payload;
+    },
+    clearSelectedWork: (state) => {
+      state.selectedWork = null;
+      state.showDetailModal = false;
     },
   },
   extraReducers: (builder) => {
@@ -614,9 +759,10 @@ const workSlice = createSlice({
       })
       
       // Assign boy to work
-      .addCase(assignBoyToWork.pending, (state) => {
+      .addCase(assignBoyToWork.pending, (state,action) => {
         state.loading = true;
         state.error = null;
+        console.log(action.payload)
       })
       .addCase(assignBoyToWork.fulfilled, (state, action) => {
         state.loading = false;
@@ -665,17 +811,56 @@ const workSlice = createSlice({
       .addCase(fetchAssignedUsers.fulfilled, (state, action) => {
         state.loading = false;
         state.assignedUsers = action.payload;
-        console.log("sss")
-        console.log(action.payload)
       })
       .addCase(fetchAssignedUsers.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
-        console.log("aaa")
-        console.log(action.payload)
       })
+      .addCase(fetchAdminStats.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(fetchAdminStats.fulfilled, (state, action) => {
+        state.loading = false;
+        state.adminStats = action.payload;
+      })
+      .addCase(fetchAdminStats.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+      // LIST
+      .addCase(getWorkAnalyticsList.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getWorkAnalyticsList.fulfilled, (state, action) => {
+        state.loading = false;
+        state.analyticsList = action.payload;
+      })
+      .addCase(getWorkAnalyticsList.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      })
+
+      // DETAILS
+      .addCase(getWorkAnalyticsDetails.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getWorkAnalyticsDetails.fulfilled, (state, action) => {
+        state.loading = false;
+        state.analyticsDetails = action.payload;
+      })
+      .addCase(getWorkAnalyticsDetails.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+      });
   },
 });
 
-export const { clearError, clearWorks, clearUpcomingWorks, clearWorkRequests, clearWorkState } = workSlice.actions;
+export const { clearError, clearWorks, clearUpcomingWorks, clearWorkRequests, clearWorkState,setSelectedWork,
+  setShowDetailModal,
+  setShowSupervisorModal,
+  setShowBoyModal,
+  clearSelectedWork} = workSlice.actions;
 export default workSlice.reducer;

@@ -53,8 +53,8 @@ const UsersList = () => {
   ];
 
   const EMPLOYMENT_TYPES = [
-    { value: 'Part Time', label: 'Part Time' },
-    { value: 'Full Time', label: 'Full Time' }
+    { value: 'part_time', label: 'Part Time' },
+    { value: 'full_time', label: 'Full Time' }
   ];
 
   useEffect(() => {
@@ -235,52 +235,60 @@ useEffect(() => {
     }
   };
 
-  const handleDetailsSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateDetailsForm()) {
-      return;
+const convertFileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+
+const handleDetailsSubmit = async (e) => {
+  e.preventDefault();
+
+  if (!validateDetailsForm()) {
+    return;
+  }
+
+  try {
+    let userDataToSend = { ...detailsFormData };
+
+    // 🟡 If there's a file, convert to Base64 or upload separately and use the URL
+    if (userDataToSend.license_image instanceof File) {
+      userDataToSend.license_image = await convertFileToBase64(userDataToSend.license_image);
     }
+
+    // ✅ View final payload in console (raw JSON)
+    console.log('Sending raw JSON to backend:', userDataToSend);
+
+    // 🟢 Send it via dispatch
+    await dispatch(updateUserDetails({
+      userId: selectedUserId,
+      userData: userDataToSend
+    })).unwrap();
+
+    // Reset
+    setDetailsFormData({
+      mobile_number: '',
+      address: '',
+      district: '',
+      place: '',
+      experienced: false,
+      employment_type: '',
+      has_bike: false,
+      has_license: false,
+      license_image: null
+    });
+    setDetailsFormErrors({});
+    setIsAddDetailsModalOpen(false);
+    dispatch(getUsersList());
     
-    try {
-      // Create FormData for file uploads
-      const formDataToSend = new FormData();
-      
-      // Append all form fields
-      Object.keys(detailsFormData).forEach(key => {
-        if (key === 'license_image') {
-          if (detailsFormData[key]) {
-            formDataToSend.append(key, detailsFormData[key]);
-          }
-        } else {
-          formDataToSend.append(key, detailsFormData[key]);
-        }
-      });
-      
-      await dispatch(updateUserDetails({ userId: selectedUserId, userData: formDataToSend })).unwrap();
-      
-      // Reset form and close modal on success
-      setDetailsFormData({
-        mobile_number: '',
-        address: '',
-        district: '',
-        place: '',
-        experienced: false,
-        employment_type: '',
-        has_bike: false,
-        has_license: false,
-        license_image: null
-      });
-      setDetailsFormErrors({});
-      setIsAddDetailsModalOpen(false);
-      
-      // Refresh users list
-      dispatch(getUsersList());
-      
-    } catch (error) {
-      console.error('Error updating user details:', error);
-    }
-  };
+  } catch (error) {
+    console.error('Error updating user details:', error);
+  }
+};
 
   const handleViewDetails = async (userId) => {
     setSelectedUserId(userId);
@@ -1014,16 +1022,17 @@ const handleCloseEditModal = () => {
                       Mobile Number *
                     </label>
                     <input
-                      type="tel"
-                      name="mobile_number"
-                      value={detailsFormData.mobile_number}
-                      onChange={handleDetailsInputChange}
-                      className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                        detailsFormErrors.mobile_number ? 'border-red-500' : 'border-gray-300'
-                      }`}
-                      placeholder="Enter mobile number"
-                      disabled={isUpdating}
-                    />
+                        type="tel"
+                        name="mobile_number"
+                        value={detailsFormData.mobile_number}
+                        onChange={handleDetailsInputChange}
+                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                          detailsFormErrors.mobile_number ? 'border-red-500' : 'border-gray-300'
+                        }`}
+                        placeholder="Enter mobile number"
+                        required
+                        disabled={isUpdating}
+                      />
                     {detailsFormErrors.mobile_number && (
                       <p className="mt-1 text-sm text-red-600">{detailsFormErrors.mobile_number}</p>
                     )}
@@ -1070,6 +1079,7 @@ const handleCloseEditModal = () => {
                       onChange={handleDetailsInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                       placeholder="Enter place"
+                      required
                       disabled={isUpdating}
                     />
                   </div>
@@ -1082,6 +1092,7 @@ const handleCloseEditModal = () => {
                       value={detailsFormData.employment_type}
                       onChange={handleDetailsInputChange}
                       className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      required
                       disabled={isUpdating}
                     >
                       <option value="">Select employment type</option>

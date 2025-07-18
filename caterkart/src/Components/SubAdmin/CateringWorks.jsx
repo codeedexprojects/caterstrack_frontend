@@ -100,14 +100,6 @@ const CateringWorks = () => {
     });
   };
 
-  const formatCurrency = (amount) => {
-    if (!amount) return '₹0';
-    return new Intl.NumberFormat('en-IN', {
-      style: 'currency',
-      currency: 'INR'
-    }).format(amount);
-  };
-
   const formatWorkType = (workType) => {
     if (!workType) return 'N/A';
     return workType.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
@@ -152,20 +144,20 @@ const CateringWorks = () => {
   const submitRating = () => {
     if (!currentRatingUser || !currentWorkId) return;
 
-  const ratingData = {
-    user: currentRatingUser.user_id,
-    work: currentWorkId,
-    pant: ratings.pant,
-    shoe: ratings.shoe,
-    timing: ratings.timing,
-    neatness: ratings.neatness,
-    performance: ratings.performance,
-    travel_allowance: ratings.travel_allowance,
-    over_time: ratings.over_time,
-    bonus: ratings.bonus,
-    long_fare: ratings.long_fare
-  };
-    console.log(ratingData)
+    const ratingData = {
+      user: currentRatingUser.user_id,
+      work: currentWorkId,
+      pant: ratings.pant,
+      shoe: ratings.shoe,
+      timing: ratings.timing,
+      neatness: ratings.neatness,
+      performance: ratings.performance,
+      travel_allowance: ratings.travel_allowance ? parseFloat(ratings.travel_allowance) : 0,
+      over_time: ratings.over_time ? parseFloat(ratings.over_time) : 0,
+      bonus: ratings.bonus ? parseFloat(ratings.bonus) : 0,
+      long_fare: ratings.long_fare ? parseFloat(ratings.long_fare) : 0
+    };
+    console.log(ratingData);
     dispatch(submitAttendanceRating(ratingData));
   };
 
@@ -267,131 +259,239 @@ const CateringWorks = () => {
       )}
 
       {/* Works Cards */}
-      {!cateringWorkList.isLoading && !cateringWorkList.error && (
-        <div className="space-y-4">
-          {filteredWorks.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              <p>No catering works found.</p>
+      {/* Updated Work Cards Section */}
+{!cateringWorkList.isLoading && !cateringWorkList.error && (
+  <div className="space-y-3">
+    {filteredWorks.length === 0 ? (
+      <div className="text-center py-8 text-gray-500">
+        <p>No catering works found.</p>
+      </div>
+    ) : (
+      filteredWorks.map((work) => (
+        <div key={work.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
+          {/* Card Header */}
+          <div className="flex items-center justify-between mb-3">
+            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getWorkTypeColor(work.work_type)}`}>
+              {formatWorkType(work.work_type)}
+            </span>
+            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(work.status)}`}>
+              {work.status ? work.status.charAt(0).toUpperCase() + work.status.slice(1) : 'Unknown'}
+            </span>
+          </div>
+
+          {/* Venue - Highlighted */}
+          <div className="mb-3">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">{work.Auditorium_name || 'Venue Not Specified'}</h3>
+            <div className="flex items-center text-sm text-gray-600">
+              <MapPin className="h-4 w-4 mr-1" />
+              <span className="flex-1">{work.place || 'N/A'}, {work.district || 'N/A'}</span>
+              {work.location_url && (
+                <a
+                  href={work.location_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-blue-600 hover:text-blue-800 p-1 ml-2"
+                >
+                  <ExternalLink className="h-4 w-4" />
+                </a>
+              )}
             </div>
-          ) : (
-            filteredWorks.map((work) => (
-              <div key={work.id} className="bg-white rounded-xl shadow-sm border border-gray-200 p-4">
-                {/* Card Header */}
-                <div className="flex items-start justify-between mb-3">
-                  <div className="flex items-center gap-2">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getWorkTypeColor(work.work_type)}`}>
-                      {formatWorkType(work.work_type)}
-                    </span>
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(work.status)}`}>
-                      {work.status ? work.status.charAt(0).toUpperCase() + work.status.slice(1) : 'Unknown'}
-                    </span>
-                  </div>
-                  {work.is_published && (
-                    <span className="inline-flex px-2 py-1 text-xs font-semibold rounded-full bg-green-100 text-green-800 border border-green-200">
-                      Published
-                    </span>
-                  )}
-                </div>
+          </div>
 
-                {/* Customer Info */}
-                <div className="flex items-center mb-3">
-                  <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full mr-3">
-                    <User className="h-5 w-5 text-blue-600" />
-                  </div>
-                  <div className="flex-1">
-                    <h3 className="text-lg font-semibold text-gray-900">{work.customer_name || 'Unknown Customer'}</h3>
-                    <div className="flex items-center text-sm text-gray-500">
-                      <Phone className="h-4 w-4 mr-1" />
-                      {work.customer_mobile || 'N/A'}
-                    </div>
-                  </div>
-                </div>
-
-                {/* Date & Time */}
-                <div className="flex items-center mb-3">
-                  <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-sm text-gray-700 mr-4">{formatDate(work.date)}</span>
-                  <Clock className="h-4 w-4 text-gray-400 mr-2" />
-                  <span className="text-sm text-gray-700">{formatTime(work.reporting_time)}</span>
-                </div>
-
-                {/* Location */}
-                <div className="flex items-start mb-3">
-                  <MapPin className="h-4 w-4 text-gray-400 mr-2 mt-0.5" />
-                  <div className="flex-1">
-                    <div className="text-sm text-gray-700">{work.place || 'N/A'}</div>
-                    <div className="text-sm text-gray-500">{work.district || 'N/A'}</div>
-                    {work.address && (
-                      <div className="text-sm text-gray-500 mt-1">{work.address}</div>
-                    )}
-                  </div>
-                  {work.location_url && (
-                    <a
-                      href={work.location_url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-blue-600 hover:text-blue-800 p-1"
-                    >
-                      <ExternalLink className="h-4 w-4" />
-                    </a>
-                  )}
-                </div>
-
-                {/* Work Details */}
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center">
-                      <Users className="h-4 w-4 text-gray-400 mr-1" />
-                      <span className="text-sm text-gray-700">{work.no_of_boys_needed || 0} boys</span>
-                    </div>
-                    <div className="flex items-center">
-                      <Users className="h-4 w-4 text-gray-400 mr-1" />
-                      <span className="text-sm text-gray-700">{work.attendees || 0} guests</span>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-lg font-bold text-gray-900">{formatCurrency(work.payment_amount)}</div>
-                  </div>
-                </div>
-
-                {/* Additional Info */}
-                {(work.Auditorium_name || work.Catering_company) && (
-                  <div className="border-t border-gray-100 pt-3 mb-4">
-                    {work.Auditorium_name && (
-                      <div className="text-sm text-gray-600 mb-1">
-                        <span className="font-medium">Venue:</span> {work.Auditorium_name}
-                      </div>
-                    )}
-                    {work.Catering_company && (
-                      <div className="text-sm text-gray-600">
-                        <span className="font-medium">Catering:</span> {work.Catering_company}
-                      </div>
-                    )}
-                  </div>
-                )}
-
-                {/* Action Buttons */}
-                <div className="flex gap-2">
-                  <button
-                    onClick={() => openModal(work)}
-                    className="flex-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg py-2 px-4 text-sm font-medium hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center"
-                  >
-                    <Eye className="h-4 w-4 mr-2" />
-                    View Details
-                  </button>
-                  <button
-                    onClick={() => openAttendanceModal(work)}
-                    className="flex-1 bg-green-50 text-green-700 border border-green-200 rounded-lg py-2 px-4 text-sm font-medium hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center"
-                  >
-                    <Star className="h-4 w-4 mr-2" />
-                    Rate Boys
-                  </button>
-                </div>
+          {/* Date & Time */}
+          <div className="grid grid-cols-2 gap-3 mb-3">
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="flex items-center mb-1">
+                <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                <span className="text-xs text-gray-500">Date</span>
               </div>
-            ))
+              <span className="text-sm font-semibold text-gray-900">{formatDate(work.date)}</span>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-3">
+              <div className="flex items-center mb-1">
+                <Clock className="h-4 w-4 text-gray-400 mr-2" />
+                <span className="text-xs text-gray-500">Time</span>
+              </div>
+              <span className="text-sm font-semibold text-gray-900">{formatTime(work.reporting_time)}</span>
+            </div>
+          </div>
+
+          {/* Boys Count */}
+          <div className="bg-blue-50 rounded-lg p-3 mb-4">
+            <div className="flex items-center justify-center">
+              <Users className="h-5 w-5 text-blue-600 mr-2" />
+              <span className="text-base font-bold text-blue-900">{work.no_of_boys_needed || 0} Boys Needed</span>
+            </div>
+          </div>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => openModal(work)}
+              className="flex-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg py-2 px-4 text-sm font-medium hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center"
+            >
+              <Eye className="h-4 w-4 mr-2" />
+              View Details
+            </button>
+            <button
+              onClick={() => openAttendanceModal(work)}
+              className="flex-1 bg-green-50 text-green-700 border border-green-200 rounded-lg py-2 px-4 text-sm font-medium hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center"
+            >
+              <Star className="h-4 w-4 mr-2" />
+              Mark Attendance
+            </button>
+          </div>
+        </div>
+      ))
+    )}
+  </div>
+)}
+
+{/* Updated Detail Modal */}
+{showModal && selectedWork && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
+    <div className="bg-white rounded-t-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up">
+      <div className="sticky top-0 bg-white border-b border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Work Details</h3>
+          <button
+            onClick={closeModal}
+            className="text-gray-400 hover:text-gray-600 p-2"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+      </div>
+      
+      <div className="p-4 space-y-4">
+        {/* Venue - Highlighted */}
+        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+          <h4 className="font-bold text-blue-900 text-xl mb-2">{selectedWork.Auditorium_name || 'Venue Not Specified'}</h4>
+          <div className="flex items-center text-blue-700">
+            <MapPin className="h-4 w-4 mr-2" />
+            <span>{selectedWork.place || 'N/A'}, {selectedWork.district || 'N/A'}</span>
+            {selectedWork.location_url && (
+              <a
+                href={selectedWork.location_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-blue-600 hover:text-blue-800 p-1 ml-2"
+              >
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            )}
+          </div>
+          {selectedWork.address && (
+            <p className="text-sm text-blue-600 mt-2">{selectedWork.address}</p>
           )}
         </div>
-      )}
+
+        {/* Work Information */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h4 className="font-semibold text-gray-900 mb-3">Work Information</h4>
+          <div className="space-y-2">
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Work Type</span>
+              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getWorkTypeColor(selectedWork.work_type)}`}>
+                {formatWorkType(selectedWork.work_type)}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Status</span>
+              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(selectedWork.status)}`}>
+                {selectedWork.status ? selectedWork.status.charAt(0).toUpperCase() + selectedWork.status.slice(1) : 'Unknown'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Published</span>
+              <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${selectedWork.is_published ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'}`}>
+                {selectedWork.is_published ? 'Yes' : 'No'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Date</span>
+              <span className="text-sm font-medium text-gray-900">{formatDate(selectedWork.date)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Reporting Time</span>
+              <span className="text-sm font-medium text-gray-900">{formatTime(selectedWork.reporting_time)}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Boys Needed</span>
+              <span className="text-sm font-medium text-gray-900">{selectedWork.no_of_boys_needed || 0}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-sm text-gray-600">Attendees</span>
+              <span className="text-sm font-medium text-gray-900">{selectedWork.attendees || 0}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Assigned Users */}
+        <div className="bg-gray-50 rounded-lg p-4">
+          <h4 className="font-semibold text-gray-900 mb-3">Assigned Users</h4>
+          {assignedUsers.isLoading ? (
+            <div className="text-center py-4">
+              <RefreshCw className="h-5 w-5 animate-spin mx-auto text-blue-500" />
+              <p className="text-sm text-gray-600 mt-2">Loading assigned users...</p>
+            </div>
+          ) : selectedWorkAssignedUsers.length === 0 ? (
+            <p className="text-sm text-gray-600">No users assigned to this work.</p>
+          ) : (
+            <div className="space-y-3">
+              {selectedWorkAssignedUsers.map((user) => (
+                <div key={user.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                  <div className="flex items-center">
+                    <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full mr-3">
+                      <User className="h-4 w-4 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-medium text-gray-900">{user.user_name}</p>
+                      <p className="text-xs text-gray-500">{user.email}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.type === 'supervisor' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}`}>
+                      {user.type}
+                    </span>
+                    <span className="text-xs text-gray-500">
+                      {formatDate(user.assigned_at)}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Instructions */}
+        {selectedWork.instructions && (
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="font-semibold text-gray-900 mb-3">Instructions</h4>
+            <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{selectedWork.instructions}</p>
+          </div>
+        )}
+
+        {/* About Work */}
+        {selectedWork.About_work && (
+          <div className="bg-gray-50 rounded-lg p-4">
+            <h4 className="font-semibold text-gray-900 mb-3">About Work</h4>
+            <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{selectedWork.About_work}</p>
+          </div>
+        )}
+      </div>
+
+      <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4">
+        <button
+          onClick={closeModal}
+          className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+        >
+          Close
+        </button>
+      </div>
+    </div>
+  </div>
+)}
 
       {/* Detail Modal */}
       {showModal && selectedWork && (
@@ -431,10 +531,6 @@ const CateringWorks = () => {
                     <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${selectedWork.is_published ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'}`}>
                       {selectedWork.is_published ? 'Yes' : 'No'}
                     </span>
-                  </div>
-                  <div className="flex justify-between items-center">
-                    <span className="text-sm text-gray-600">Amount</span>
-                    <span className="text-sm font-semibold text-gray-900">{formatCurrency(selectedWork.payment_amount)}</span>
                   </div>
                   <div className="flex justify-between items-center">
                     <span className="text-sm text-gray-600">Date</span>
@@ -597,7 +693,7 @@ const CateringWorks = () => {
           <div className="bg-white rounded-t-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up">
             <div className="sticky top-0 bg-white border-b border-gray-200 p-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Rate Boys</h3>
+                <h3 className="text-lg font-semibold text-gray-900">c</h3>
                 <button
                   onClick={closeAttendanceModal}
                   className="text-gray-400 hover:text-gray-600 p-2"
@@ -645,242 +741,250 @@ const CateringWorks = () => {
       )}
 
       {/* Rating Form Modal */}
-{currentRatingUser && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
-    <div className="bg-white rounded-t-2xl w-full h-[90vh] overflow-y-auto animate-slide-up">
-      <div className="sticky top-0 bg-white border-b border-gray-200 p-4">
-        <div className="flex items-center justify-between">
-          <h3 className="text-lg font-semibold text-gray-900">Rate {currentRatingUser.user_name}</h3>
-          <button
-            onClick={() => setCurrentRatingUser(null)}
-            className="text-gray-400 hover:text-gray-600 p-2"
-          >
-            <X className="h-6 w-6" />
-          </button>
-        </div>
-      </div>
-      
-      <div className="p-4 space-y-6 pb-32">
-        {/* Pant Rating */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">Pant</label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => handleRatingChange('pant', true)}
-              className={`flex items-center justify-center px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
-                ratings.pant === true 
-                  ? 'bg-green-50 border-green-200 text-green-700' 
-                  : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Good
-            </button>
-            <button
-              onClick={() => handleRatingChange('pant', false)}
-              className={`flex items-center justify-center px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
-                ratings.pant === false 
-                  ? 'bg-red-50 border-red-200 text-red-700' 
-                  : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <X className="h-4 w-4 mr-2" />
-              Poor
-            </button>
+      {currentRatingUser && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
+          <div className="bg-white rounded-t-3xl w-full h-screen overflow-y-auto animate-slide-up">
+            <div className="sticky top-0 bg-white border-b border-gray-200 p-4">
+              <div className="flex items-center justify-between">
+                <h3 className="text-lg font-semibold text-gray-900">Rate {currentRatingUser.user_name}</h3>
+                <button
+                  onClick={() => setCurrentRatingUser(null)}
+                  className="text-gray-400 hover:text-gray-600 p-2"
+                >
+                  <X className="h-6 w-6" />
+                </button>
+              </div>
+            </div>
+            
+            <div className="p-4 space-y-6 pb-40">
+              {/* Pant Rating */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-4">Pant</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => handleRatingChange('pant', true)}
+                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
+                      ratings.pant === true 
+                        ? 'bg-green-50 border-green-200 text-green-700' 
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    Good
+                  </button>
+                  <button
+                    onClick={() => handleRatingChange('pant', false)}
+                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
+                      ratings.pant === false 
+                        ? 'bg-red-50 border-red-200 text-red-700' 
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <X className="h-5 w-5 mr-2" />
+                    Poor
+                  </button>
+                </div>
+              </div>
+
+              {/* Shoe Rating */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-4">Shoe</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => handleRatingChange('shoe', true)}
+                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
+                      ratings.shoe === true 
+                        ? 'bg-green-50 border-green-200 text-green-700' 
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    Good
+                  </button>
+                  <button
+                    onClick={() => handleRatingChange('shoe', false)}
+                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
+                      ratings.shoe === false 
+                        ? 'bg-red-50 border-red-200 text-red-700' 
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <X className="h-5 w-5 mr-2" />
+                    Poor
+                  </button>
+                </div>
+              </div>
+
+              {/* Timing Rating */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-4">Timing</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => handleRatingChange('timing', true)}
+                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
+                      ratings.timing === true 
+                        ? 'bg-green-50 border-green-200 text-green-700' 
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    Good
+                  </button>
+                  <button
+                    onClick={() => handleRatingChange('timing', false)}
+                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
+                      ratings.timing === false 
+                        ? 'bg-red-50 border-red-200 text-red-700' 
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <X className="h-5 w-5 mr-2" />
+                    Poor
+                  </button>
+                </div>
+              </div>
+
+              {/* Neatness Rating */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-4">Neatness</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => handleRatingChange('neatness', true)}
+                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
+                      ratings.neatness === true 
+                        ? 'bg-green-50 border-green-200 text-green-700' 
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    Good
+                  </button>
+                  <button
+                    onClick={() => handleRatingChange('neatness', false)}
+                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
+                      ratings.neatness === false 
+                        ? 'bg-red-50 border-red-200 text-red-700' 
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <X className="h-5 w-5 mr-2" />
+                    Poor
+                  </button>
+                </div>
+              </div>
+
+              {/* Performance */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-4">Performance</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button
+                    onClick={() => handleRatingChange('performance', true)}
+                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
+                      ratings.performance === true 
+                        ? 'bg-green-50 border-green-200 text-green-700' 
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <CheckCircle className="h-5 w-5 mr-2" />
+                    Good
+                  </button>
+                  <button
+                    onClick={() => handleRatingChange('performance', false)}
+                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
+                      ratings.performance === false 
+                        ? 'bg-red-50 border-red-200 text-red-700' 
+                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
+                    }`}
+                  >
+                    <X className="h-5 w-5 mr-2" />
+                    Poor
+                  </button>
+                </div>
+              </div>
+
+              {/* Travel Allowance */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-4">Travel Allowance (₹)</label>
+                <input
+                  type="number"
+                  value={ratings.travel_allowance}
+                  onChange={(e) => handleRatingChange('travel_allowance', e.target.value)}
+                  className="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+                  placeholder="Enter amount"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              {/* Over Time */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-4">Over Time (₹)</label>
+                <input
+                  type="number"
+                  value={ratings.over_time}
+                  onChange={(e) => handleRatingChange('over_time', e.target.value)}
+                  className="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+                  placeholder="Enter amount"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              {/* Bonus */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-4">Bonus (₹)</label>
+                <input
+                  type="number"
+                  value={ratings.bonus}
+                  onChange={(e) => handleRatingChange('bonus', e.target.value)}
+                  className="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+                  placeholder="Enter amount"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+
+              {/* Long Fare */}
+              <div>
+                <label className="block text-base font-medium text-gray-700 mb-4">Long Fare (₹)</label>
+                <input
+                  type="number"
+                  value={ratings.long_fare}
+                  onChange={(e) => handleRatingChange('long_fare', e.target.value)}
+                  className="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
+                  placeholder="Enter amount"
+                  min="0"
+                  step="0.01"
+                />
+              </div>
+            </div>
+
+            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 space-y-3">
+              <button
+                onClick={submitRating}
+                disabled={attendanceRating.isLoading}
+                className="w-full bg-blue-600 text-white py-4 px-4 rounded-xl font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-base"
+              >
+                {attendanceRating.isLoading ? (
+                  <>
+                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+                    Submitting...
+                  </>
+                ) : (
+                  'Submit Rating'
+                )}
+              </button>
+              
+              <button
+                onClick={() => setCurrentRatingUser(null)}
+                className="w-full bg-gray-100 text-gray-700 py-4 px-4 rounded-xl font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 text-base"
+              >
+                Cancel
+              </button>
+            </div>
           </div>
         </div>
-
-        {/* Shoe Rating */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">Shoe</label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => handleRatingChange('shoe', true)}
-              className={`flex items-center justify-center px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
-                ratings.shoe === true 
-                  ? 'bg-green-50 border-green-200 text-green-700' 
-                  : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Good
-            </button>
-            <button
-              onClick={() => handleRatingChange('shoe', false)}
-              className={`flex items-center justify-center px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
-                ratings.shoe === false 
-                  ? 'bg-red-50 border-red-200 text-red-700' 
-                  : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <X className="h-4 w-4 mr-2" />
-              Poor
-            </button>
-          </div>
-        </div>
-
-        {/* Timing Rating */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">Timing</label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => handleRatingChange('timing', true)}
-              className={`flex items-center justify-center px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
-                ratings.timing === true 
-                  ? 'bg-green-50 border-green-200 text-green-700' 
-                  : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Good
-            </button>
-            <button
-              onClick={() => handleRatingChange('timing', false)}
-              className={`flex items-center justify-center px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
-                ratings.timing === false 
-                  ? 'bg-red-50 border-red-200 text-red-700' 
-                  : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <X className="h-4 w-4 mr-2" />
-              Poor
-            </button>
-          </div>
-        </div>
-
-        {/* Neatness Rating */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">Neatness</label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => handleRatingChange('neatness', true)}
-              className={`flex items-center justify-center px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
-                ratings.neatness === true 
-                  ? 'bg-green-50 border-green-200 text-green-700' 
-                  : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Good
-            </button>
-            <button
-              onClick={() => handleRatingChange('neatness', false)}
-              className={`flex items-center justify-center px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
-                ratings.neatness === false 
-                  ? 'bg-red-50 border-red-200 text-red-700' 
-                  : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <X className="h-4 w-4 mr-2" />
-              Poor
-            </button>
-          </div>
-        </div>
-
-        {/* Performance */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">Performance</label>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              onClick={() => handleRatingChange('performance', true)}
-              className={`flex items-center justify-center px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
-                ratings.performance === true 
-                  ? 'bg-green-50 border-green-200 text-green-700' 
-                  : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <CheckCircle className="h-4 w-4 mr-2" />
-              Good
-            </button>
-            <button
-              onClick={() => handleRatingChange('performance', false)}
-              className={`flex items-center justify-center px-4 py-3 rounded-lg border text-sm font-medium transition-colors ${
-                ratings.performance === false 
-                  ? 'bg-red-50 border-red-200 text-red-700' 
-                  : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-              }`}
-            >
-              <X className="h-4 w-4 mr-2" />
-              Poor
-            </button>
-          </div>
-        </div>
-
-        {/* Travel Allowance */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">Travel Allowance (₹)</label>
-          <input
-            type="number"
-            value={ratings.travel_allowance}
-            onChange={(e) => handleRatingChange('travel_allowance', e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-            placeholder="Enter amount"
-          />
-        </div>
-
-        {/* Over Time */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">Over Time (₹)</label>
-          <input
-            type="number"
-            value={ratings.over_time}
-            onChange={(e) => handleRatingChange('over_time', e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-            placeholder="Enter amount"
-          />
-        </div>
-
-        {/* Bonus */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">Bonus (₹)</label>
-          <input
-            type="number"
-            value={ratings.bonus}
-            onChange={(e) => handleRatingChange('bonus', e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-            placeholder="Enter amount"
-          />
-        </div>
-
-        {/* Long Fare */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">Long Fare (₹)</label>
-          <input
-            type="number"
-            value={ratings.long_fare}
-            onChange={(e) => handleRatingChange('long_fare', e.target.value)}
-            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-            placeholder="Enter amount"
-          />
-        </div>
-      </div>
-
-      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 space-y-3">
-        <button
-          onClick={submitRating}
-          disabled={attendanceRating.isLoading}
-          className="w-full bg-blue-600 text-white py-4 px-4 rounded-lg font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-base"
-        >
-          {attendanceRating.isLoading ? (
-            <>
-              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-              Submitting...
-            </>
-          ) : (
-            'Submit Rating'
-          )}
-        </button>
-        
-        <button
-          onClick={() => setCurrentRatingUser(null)}
-          className="w-full bg-gray-100 text-gray-700 py-4 px-4 rounded-lg font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 text-base"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
-  </div>
-)}
+      )}
     </div>
   );
 };

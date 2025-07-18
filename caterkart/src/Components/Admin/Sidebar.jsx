@@ -12,6 +12,7 @@ const Sidebar = ({ activeSection, setActiveSection, sidebarOpen, setSidebarOpen 
     { id: 'users', label: 'Users', icon: Users, path: '/admin/users' },
     { id: 'fares', label: 'Fares', icon: DollarSign, path: '/admin/fares' },
     { id: 'works', label: 'Works', icon: Briefcase, path: '/admin/works' },
+    { id: 'work-analytics', label: 'Work Analytics', icon: Briefcase, path: '/admin/work-analytics' }
   ];
 
   const dispatch = useDispatch()
