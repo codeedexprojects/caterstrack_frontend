@@ -29,8 +29,11 @@ import {
   updateWorkRequestStatusAndAssign,
   assignSupervisors,
   assignBoyToWork,
-  publishWork
+  publishWork,
+  fetchAssignedUsers  // Add this line
 } from '../../Services/Api/Admin/WorkSlice';
+
+import { getUsersList } from '../../Services/Api/Admin/UserSlice';
 
 // Toast Component
 const Toast = ({ message, type, onClose }) => {
@@ -66,7 +69,7 @@ const Toast = ({ message, type, onClose }) => {
 
 const Works = () => {
   const dispatch = useDispatch();
-  const { works, workRequests, loading, error } = useSelector(state => state.work);
+  const { works, workRequests, assignedUsers, loading, error } = useSelector(state => state.work);
   const { users } = useSelector(state => state.users);
   
   const [showModal, setShowModal] = useState(false);
@@ -79,6 +82,9 @@ const Works = () => {
   const [showSupervisorModal, setShowSupervisorModal] = useState(false);
   const [selectedSupervisors, setSelectedSupervisors] = useState([]);
   const [availableSupervisors, setAvailableSupervisors] = useState([]);
+  const [showBoyModal, setShowBoyModal] = useState(false);
+  const [selectedBoys, setSelectedBoys] = useState([]);
+  const [availableBoys, setAvailableBoys] = useState([]);
   
   
   const [formData, setFormData] = useState({
@@ -104,7 +110,13 @@ const Works = () => {
 
   useEffect(() => {
     dispatch(fetchWorks());
+    dispatch(getUsersList());
   }, [dispatch]);
+
+  useEffect(() => {
+    const boys = users.filter(user => user.role === 'boys');
+    setAvailableBoys(boys);
+  }, [users]);
 
 
   useEffect(() => {
@@ -129,15 +141,16 @@ const Works = () => {
     }));
   };
 
-const handleWorkClick = async (work) => {
-  setSelectedWork(work);
-  setShowDetailModal(true);
-  try {
-    await dispatch(fetchWorkRequestsByWork(work.id));
-  } catch (error) {
-    showToast('Failed to load work requests', 'error');
-  }
-};
+  const handleWorkClick = async (work) => {
+    setSelectedWork(work);
+    await dispatch(fetchAssignedUsers(work.id));
+    setShowDetailModal(true);
+    try {
+      await dispatch(fetchWorkRequestsByWork(work.id));
+    } catch (error) {
+      showToast('Failed to load work data', 'error');
+    }
+  };
 
   const handleAssignSupervisors = async () => {
     if (!selectedWork || selectedSupervisors.length === 0) {
@@ -157,6 +170,34 @@ const handleWorkClick = async (work) => {
       showToast(error.message || 'Failed to assign supervisors', 'error');
     }
   };
+
+  const handleAssignBoys = async () => {
+    if (!selectedWork || selectedBoys.length === 0) {
+      showToast('Please select at least one boy', 'error');
+      return;
+    }
+
+    const payload = {
+      work: selectedWork.id,
+      boys: selectedBoys  // 🔁 renamed to match thunk parameter
+    };
+
+    console.log("Dispatching assignBoyToWork with payload:", payload);
+
+    try {
+      const response = await dispatch(assignBoyToWork(payload)).unwrap();
+
+      console.log("API Success Response:", response);
+      showToast('Boys assigned successfully!', 'success');
+      setShowBoyModal(false);
+      setSelectedBoys([]);
+      await dispatch(fetchAssignedUsers(selectedWork.id));
+    } catch (error) {
+      console.error("Dispatch error:", error); // 🔍 clearer debugging
+      showToast(error || 'Failed to assign boys', 'error');
+    }
+  };
+
 
   // Handle boy assignment (reject or assign)
   const handleBoyAction = async (requestId, action) => {
@@ -911,24 +952,69 @@ const handleWorkClick = async (work) => {
         </div>
       </div>
 
+      {/* Assigned Users Section */}
+<div className="mb-6">
+  <h3 className="text-lg font-semibold text-gray-900 mb-4">Assigned Users</h3>
+
+  {assignedUsers.users && assignedUsers.users.length > 0 ? (
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {assignedUsers.users.map((user) => (
+        <div key={user.id} className="bg-gray-50 p-4 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <h4 className="font-medium text-gray-900">{user.user_name}</h4>
+              <p className="text-sm text-gray-500">
+                {user.role === 'supervisor' ? 'Supervisor' : 'Worker'}
+              </p>
+              {user.email && (
+                <p className="text-sm text-gray-500">{user.email}</p>
+              )}
+            </div>
+            <div className="text-right">
+              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
+                user.role === 'supervisor' 
+                  ? 'bg-blue-100 text-blue-800' 
+                  : 'bg-green-100 text-green-800'
+              }`}>
+                {user.role}
+              </span>
+              <p className="text-xs text-gray-400 mt-1">
+                Assigned: {new Date(user.assigned_at).toLocaleDateString()}
+              </p>
+            </div>
+          </div>
+        </div>
+      ))}
+    </div>
+  ) : (
+    <div className="bg-gray-50 p-4 rounded-lg text-center">
+      <Users className="mx-auto h-8 w-8 text-gray-400 mb-2" />
+      <p className="text-sm text-gray-500">No users assigned yet</p>
+    </div>
+  )}
+</div>
+
+
       {/* Supervisor Assignment */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-semibold text-gray-900">Supervisor Assignment</h3>
-          <button
-            onClick={() => setShowSupervisorModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Assign Supervisors
-          </button>
-        </div>
-        
-        {/* Show assigned supervisors here if you have that data */}
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <p className="text-sm text-blue-800">
-            Boys needed: <strong>{selectedWork.no_of_boys_needed}</strong>
-          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowBoyModal(true)}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Add Boy
+            </button>
+            <button
+              onClick={() => setShowSupervisorModal(true)}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
+            >
+              <Plus className="h-4 w-4" />
+              Assign Supervisors
+            </button>
+          </div>
         </div>
       </div>
 
@@ -1048,6 +1134,81 @@ const handleWorkClick = async (work) => {
             </p>
           </div>
         )}
+      </div>
+    </div>
+  </div>
+)}
+
+{/* Boy Assignment Modal */}
+{showBoyModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
+    <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
+      <div className="flex justify-between items-center mb-4">
+        <h3 className="text-lg font-semibold text-gray-900">Assign Boys</h3>
+        <button
+          onClick={() => setShowBoyModal(false)}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X className="h-5 w-5" />
+        </button>
+      </div>
+      
+      <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
+        {availableBoys.length > 0 ? (
+          availableBoys.map((boy) => (
+            <label key={boy.id} className="flex items-center p-2 hover:bg-gray-50 rounded">
+              <input
+                type="checkbox"
+                checked={selectedBoys.includes(boy.id)}
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setSelectedBoys([...selectedBoys, boy.id]);
+                  } else {
+                    setSelectedBoys(selectedBoys.filter(id => id !== boy.id));
+                  }
+                }}
+                className="mr-3"
+              />
+              <div className="flex-1">
+                <span className="text-sm font-medium text-gray-700">{boy.user_name}</span>
+                <div className="text-xs text-gray-500">
+                  {boy.mobile_number && <span>{boy.mobile_number}</span>}
+                  {boy.place && <span> • {boy.place}</span>}
+                </div>
+                <div className="flex gap-1 mt-1">
+                  {boy.experienced && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                      Experienced
+                    </span>
+                  )}
+                  {boy.has_bike && (
+                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                      Has Bike
+                    </span>
+                  )}
+                </div>
+              </div>
+            </label>
+          ))
+        ) : (
+          <p className="text-sm text-gray-500 text-center py-4">No boys available</p>
+        )}
+      </div>
+      
+      <div className="flex justify-end gap-2">
+        <button
+          onClick={() => setShowBoyModal(false)}
+          className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={handleAssignBoys}
+          disabled={selectedBoys.length === 0}
+          className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          Assign Boys ({selectedBoys.length})
+        </button>
       </div>
     </div>
   </div>

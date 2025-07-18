@@ -13,6 +13,12 @@ const store = configureStore({
     work: workReducer,
     subAdminAuth : SubAdminAuthReducer
   },
+  middleware: (getDefaultMiddleware) =>
+    getDefaultMiddleware({
+      serializableCheck: {
+        ignoredActions: ['persist/PERSIST'],
+      },
+    }),
 });
 
 export default store;

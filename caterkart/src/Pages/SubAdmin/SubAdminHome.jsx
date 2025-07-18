@@ -1,21 +1,21 @@
 import React, { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
-import Sidebar from '../../Components/SubAdmin/Sidebar';
-import Header from '../../Components/SubAdmin/Header';
+import SubAdminSidebar from '../../Components/SubAdmin/SubAdminSidebar';
+import SubAdminHeader from '../../Components/SubAdmin/SubAdminHeader';
 
-const AdminHome = () => {
+const SubAdminHome = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const location = useLocation();
 
-  // extract active section from path
-  const section = location.pathname.split('/')[2] || 'dashboard';
+  // Extract active section from path
+  const section = location.pathname.split('/')[2] || 'sub-dashboard';
 
   return (
     <div className="min-h-screen bg-gray-100">
       {/* Sidebar */}
-      <Sidebar
+      <SubAdminSidebar
         activeSection={section}
-        setActiveSection={() => {}} // we don't need to manage it via state now
+        setActiveSection={() => {}} // We don't need to manage it via state now
         sidebarOpen={sidebarOpen}
         setSidebarOpen={setSidebarOpen}
       />
@@ -23,7 +23,7 @@ const AdminHome = () => {
       {/* Main Content */}
       <div className="lg:ml-64 flex flex-col min-h-screen">
         {/* Header */}
-        <Header
+        <SubAdminHeader
           activeSection={section}
           setSidebarOpen={setSidebarOpen}
         />
@@ -37,4 +37,4 @@ const AdminHome = () => {
   );
 };
 
-export default AdminHome;
+export default SubAdminHome;

@@ -1,6 +1,8 @@
 import React from 'react';
 import { Home, Users, DollarSign, Briefcase, X, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { logoutAdmin } from '../../Services/Api/Admin/AdminAuthSlice';
+import { useDispatch } from 'react-redux';
 
 const Sidebar = ({ activeSection, setActiveSection, sidebarOpen, setSidebarOpen }) => {
   const navigate = useNavigate();
@@ -12,8 +14,10 @@ const Sidebar = ({ activeSection, setActiveSection, sidebarOpen, setSidebarOpen 
     { id: 'works', label: 'Works', icon: Briefcase, path: '/admin/works' },
   ];
 
+  const dispatch = useDispatch()
+
   const handleLogout = () => {
-    console.log('Logout clicked');
+    dispatch(logoutAdmin());
     navigate('/admin/login');
   };
 

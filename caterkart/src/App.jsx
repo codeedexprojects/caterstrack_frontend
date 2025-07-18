@@ -1,6 +1,5 @@
 import React from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
-import { useSelector } from 'react-redux';
 
 import AdminLogin from './Components/Admin/AdminLogin';
 import AdminHome from './Pages/Admin/AdminHome';
@@ -8,21 +7,25 @@ import Dashboard from './Components/Admin/Dashboard';
 import UsersList from './Components/Admin/UsersList';
 import FaresList from './Components/Admin/FaresList';
 import Works from './Components/Admin/Works';
+
 import SubAdminLogin from './Pages/SubAdmin/SubAdminLogin';
 import SubAdminHome from './Pages/SubAdmin/SubAdminHome';
 import SubAdminDashboard from './Pages/SubAdmin/dashboard';
-import {AdminRoute, SubAdminRoute} from './PrivateRoute';
+import CreateUser from './Components/SubAdmin/User';
+import CateringWorks from './Components/SubAdmin/CateringWorks';
+
+import { AdminRoute, SubAdminRoute } from './PrivateRoute';
 
 const App = () => {
   return (
     <Router>
       <Routes>
-        {/* Public routes */}
+        {/* Public Routes */}
         <Route path="/admin/login" element={<AdminLogin />} />
         <Route path="/subadmin/login" element={<SubAdminLogin />} />
-        
-        {/* Protected admin routes */}
-        <Route path="/admin" element={<AdminRoute/>}>
+
+        {/* Admin Protected Routes */}
+        <Route path="/admin" element={<AdminRoute />}>
           <Route element={<AdminHome />}>
             <Route index element={<Navigate to="/admin/dashboard" replace />} />
             <Route path="dashboard" element={<Dashboard />} />
@@ -32,15 +35,21 @@ const App = () => {
           </Route>
         </Route>
 
-        <Route path="/subadmin" element={<SubAdminRoute/>}>
+        {/* SubAdmin Protected Routes */}
+        <Route path="/subadmin" element={<SubAdminRoute />}>
           <Route element={<SubAdminHome />}>
             <Route index element={<Navigate to="/subadmin/sub-dashboard" replace />} />
             <Route path="sub-dashboard" element={<SubAdminDashboard />} />
+            <Route path="create-user" element={<CreateUser />} />
+            <Route path="catering-works" element={<CateringWorks />} />
           </Route>
         </Route>
-        
-        {/* Default redirect */}
+
+        {/* Redirect root to admin login */}
         <Route path="/" element={<Navigate to="/admin/login" replace />} />
+        
+        {/* Catch-all route for 404 */}
+        <Route path="*" element={<Navigate to="/admin/login" replace />} />
       </Routes>
     </Router>
   );

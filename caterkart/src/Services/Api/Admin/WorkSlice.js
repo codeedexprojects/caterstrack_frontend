@@ -1,4 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import axios from 'axios';
 
 const API_BASE_URL = 'https://catershub.pythonanywhere.com';
 
@@ -342,43 +343,63 @@ export const assignSupervisors = createAsyncThunk(
 // Update the existing assignBoyToWork to handle array of boys
 export const assignBoyToWork = createAsyncThunk(
   'work/assignBoyToWork',
-  async ({ work, boy }, { rejectWithValue, getState, dispatch }) => {
+  async ({ work, boys }, { rejectWithValue, getState, dispatch }) => {
     try {
       const { adminAuth } = getState();
-      
+
       if (!adminAuth.tokens?.access) {
         return rejectWithValue('Not authenticated');
       }
-      
-      const response = await fetch(`${API_BASE_URL}/admin_panel/assign-boy/`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${adminAuth.tokens.access}`,
-        },
-        body: JSON.stringify({ work, boy }),
+
+      console.log("Making API request to assign boys", {
+        work,
+        boys
       });
-      
-      if (response.status === 401) {
+
+      const response = await axios.post(
+        `${API_BASE_URL}/admin_panel/assign-boy/`,
+        {
+          work,
+          boys: boys  // your backend expects `boy`, so map correctly here
+        },
+        {
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${adminAuth.tokens.access}`,
+          },
+        }
+      );
+
+      console.log("Full API Response:", response); // 🔍 logs full Axios response object
+      return response.data;
+
+    } catch (error) {
+      console.error("Full error object:", error); // 🔍 logs the entire error
+      if (error.response) {
+        console.error("Error response data:", error.response.data);
+        console.error("Error status:", error.response.status);
+        console.error("Error headers:", error.response.headers);
+      } else if (error.request) {
+        console.error("Error request (no response):", error.request);
+      } else {
+        console.error("Unexpected error:", error.message);
+      }
+
+      if (error.response?.status === 401) {
         dispatch({ type: 'adminAuth/logoutAdmin' });
         return rejectWithValue('Session expired. Please login again.');
       }
-      
-      if (!response.ok) {
-        throw new Error('Failed to assign boy to work');
-      }
-      
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      return rejectWithValue(error.message);
+
+      return rejectWithValue(
+        error.response?.data?.message || 'Failed to assign boys'
+      );
     }
   }
 );
 
 export const fetchAssignedBoys = createAsyncThunk(
   'work/fetchAssignedBoys',
-  async (workId, { rejectWithValue, getState, dispatch }) => {
+  async (id, { rejectWithValue, getState, dispatch }) => {
     try {
       const { adminAuth } = getState();
       
@@ -387,7 +408,7 @@ export const fetchAssignedBoys = createAsyncThunk(
         return rejectWithValue('Not authenticated');
       }
       
-      const response = await fetch(`${API_BASE_URL}/admin_panel/work/${workId}/assigned-boys/`, {
+      const response = await fetch(`${API_BASE_URL}/admin_panel/work/${id}/assigned-boys/`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -406,7 +427,45 @@ export const fetchAssignedBoys = createAsyncThunk(
       }
       
       const data = await response.json();
-      return { workId, boys: data };
+      return { id, boys: data };
+    } catch (error) {
+      return rejectWithValue(error.message);
+    }
+  }
+);
+
+
+export const fetchAssignedUsers = createAsyncThunk(
+  'work/fetchAssignedUsers',
+  async (id, { rejectWithValue, getState, dispatch }) => {
+    try {
+      const { adminAuth } = getState();
+
+      // Check if user is authenticated
+      if (!adminAuth.tokens?.access) {
+        return rejectWithValue('Not authenticated');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin_panel/assigned-users/${id}/`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${adminAuth.tokens.access}`,
+        },
+      });
+
+      // Handle 401 unauthorized errors
+      if (response.status === 401) {
+        dispatch({ type: 'adminAuth/logoutAdmin' });
+        return rejectWithValue('Session expired. Please login again.');
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch assigned users');
+      }
+
+      const data = await response.json();
+      return { id, users: data };
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -421,6 +480,7 @@ const initialState = {
   assignedBoys: {},
   loading: false,
   error: null,
+  assignedUsers: [],
 };
 
 // Create slice
@@ -581,7 +641,7 @@ const workSlice = createSlice({
       })
       .addCase(fetchAssignedBoys.fulfilled, (state, action) => {
         state.loading = false;
-        state.assignedBoys[action.payload.workId] = action.payload.boys;
+        state.assignedBoys[action.payload.id] = action.payload.boys;
       })
       .addCase(fetchAssignedBoys.rejected, (state, action) => {
         state.loading = false;
@@ -598,6 +658,21 @@ const workSlice = createSlice({
       .addCase(assignSupervisors.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      .addCase(fetchAssignedUsers.pending, (state) => {
+        state.loading = true;
+      })
+      .addCase(fetchAssignedUsers.fulfilled, (state, action) => {
+        state.loading = false;
+        state.assignedUsers = action.payload;
+        console.log("sss")
+        console.log(action.payload)
+      })
+      .addCase(fetchAssignedUsers.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
+        console.log("aaa")
+        console.log(action.payload)
       })
   },
 });
