@@ -7,13 +7,13 @@ const UsersList = () => {
   const { users, isLoading, error, isCreating, createError, userDetails, isLoadingDetails, isUpdating, updateError, isDeleting, deleteError, searchResults, filterResults, isSearching, isFiltering, searchError, filterError } = useSelector((state) => state.users);
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [isViewDetailsModalOpen, setIsViewDetailsModalOpen] = useState(false);
-  const [isAddDetailsModalOpen, setIsAddDetailsModalOpen] = useState(false);
   const [selectedUserId, setSelectedUserId] = useState(null);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [selectedUserForEdit, setSelectedUserForEdit] = useState(null);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [userToDelete, setUserToDelete] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [originalUserData, setOriginalUserData] = useState(null);
   const [filterParams, setFilterParams] = useState({
     role: '',
     employment_type: '',
@@ -22,13 +22,21 @@ const UsersList = () => {
   const [displayUsers, setDisplayUsers] = useState([]);
   const [activeView, setActiveView] = useState('all'); // 'all', 'search', 'filter'
   
-  const [formData, setFormData] = useState({
-    user_name: '',
-    mobile_number: '',
-    role: '',
-    password: '',
-    confirmPassword: ''
-  });
+const [formData, setFormData] = useState({
+  user_name: '',
+  mobile_number: '',
+  role: '',
+  password: '',
+  confirmPassword: '',
+  address: '',
+  district: '',
+  place: '',
+  experienced: false,
+  employment_type: '',
+  has_bike: false,
+  has_license: false,
+  license_image: null
+});
 
   const [detailsFormData, setDetailsFormData] = useState({
     mobile_number: '',
@@ -61,6 +69,51 @@ const UsersList = () => {
     dispatch(getUsersList());
   }, [dispatch]);
 
+
+  const convertFileToBase64 = (file) => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onloadend = () => resolve(reader.result);
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
+
+useEffect(() => {
+  if (userDetails && isEditModalOpen && selectedUserForEdit) {
+    const userData = {
+      user_name: userDetails.user_name || '',
+      mobile_number: userDetails.mobile_number || '',
+      role: userDetails.role || '',
+      password: '',
+      confirmPassword: '',
+      address: userDetails.address || '',
+      district: userDetails.district || '',
+      place: userDetails.place || '',
+      experienced: userDetails.experienced || false,
+      employment_type: userDetails.employment_type || '',
+      has_bike: userDetails.has_bike || false,
+      has_license: userDetails.has_license || false,
+      license_image: null
+    };
+    
+    setFormData(userData);
+    // Store original data for comparison
+    setOriginalUserData({
+      user_name: userDetails.user_name || '',
+      mobile_number: userDetails.mobile_number || '',
+      role: userDetails.role || '',
+      address: userDetails.address || '',
+      district: userDetails.district || '',
+      place: userDetails.place || '',
+      experienced: userDetails.experienced || false,
+      employment_type: userDetails.employment_type || '',
+      has_bike: userDetails.has_bike || false,
+      has_license: userDetails.has_license || false,
+    });
+  }
+}, [userDetails, isEditModalOpen, selectedUserForEdit]);
+
   // Clear create error when modal opens
   useEffect(() => {
     if (isCreateModalOpen) {
@@ -68,16 +121,9 @@ const UsersList = () => {
     }
   }, [isCreateModalOpen, dispatch]);
 
-  // Clear update error when modal opens
-  useEffect(() => {
-    if (isAddDetailsModalOpen) {
-      dispatch(clearUpdateError());
-    }
-  }, [isAddDetailsModalOpen, dispatch]);
-
   // Populate details form when user details are loaded
   useEffect(() => {
-    if (userDetails && (isViewDetailsModalOpen || isAddDetailsModalOpen)) {
+    if (userDetails && (isViewDetailsModalOpen)) {
       setDetailsFormData({
         mobile_number: userDetails.mobile_number || '',
         address: userDetails.address || '',
@@ -90,7 +136,7 @@ const UsersList = () => {
         license_image: null // Reset file input
       });
     }
-  }, [userDetails, isViewDetailsModalOpen, isAddDetailsModalOpen]);
+  }, [userDetails, isViewDetailsModalOpen]);
 
 useEffect(() => {
   if (activeView === 'search') {
@@ -114,21 +160,53 @@ useEffect(() => {
   }
 }, [users, searchResults, filterResults, activeView]);
 
-  const handleInputChange = (e) => {
-    const { name, value } = e.target;
+// ADD this helper function
+const getChangedFields = (originalData, currentData, excludeFields = []) => {
+  const changedFields = {};
+  
+  Object.keys(currentData).forEach(key => {
+    if (excludeFields.includes(key)) return;
+    
+    const originalValue = originalData[key];
+    const currentValue = currentData[key];
+    
+    // Skip empty values
+    if (currentValue === '' || currentValue === null || currentValue === undefined) {
+      return;
+    }
+    
+    // For new fields (not in original data) or changed values
+    if (originalValue === undefined || originalValue !== currentValue) {
+      changedFields[key] = currentValue;
+    }
+  });
+  
+  return changedFields;
+};
+
+const handleInputChange = (e) => {
+  const { name, value, type, checked, files } = e.target;
+  
+  if (type === 'file') {
     setFormData(prev => ({
       ...prev,
-      [name]: value
+      [name]: files[0] || null
     }));
-    
-    // Clear error when user starts typing
-    if (formErrors[name]) {
-      setFormErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-  };
+  } else {
+    setFormData(prev => ({
+      ...prev,
+      [name]: type === 'checkbox' ? checked : value
+    }));
+  }
+  
+  // Clear error when user starts typing
+  if (formErrors[name]) {
+    setFormErrors(prev => ({
+      ...prev,
+      [name]: ''
+    }));
+  }
+};
 
   const handleDetailsInputChange = (e) => {
     const { name, value, type, checked, files } = e.target;
@@ -204,101 +282,55 @@ useEffect(() => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateForm()) {
-      return;
-    }
-    
-    // Prepare data for API (exclude confirmPassword)
-    const { confirmPassword, ...submitData } = formData;
-    
-    try {
-      await dispatch(createUser(submitData)).unwrap();
-      
-      // Reset form and close modal on success
-      setFormData({
-        user_name: '',
-        mobile_number: '',
-        role: '',
-        password: '',
-        confirmPassword: ''
-      });
-      setFormErrors({});
-      setIsCreateModalOpen(false);
-      
-      // Refresh users list
-      dispatch(getUsersList());
-      
-    } catch (error) {
-      console.error('Error creating user:', error);
-    }
-  };
-
-const convertFileToBase64 = (file) => {
-  return new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.onloadend = () => resolve(reader.result);
-    reader.onerror = reject;
-    reader.readAsDataURL(file);
-  });
-};
-
-
-const handleDetailsSubmit = async (e) => {
   e.preventDefault();
-
-  if (!validateDetailsForm()) {
+  
+  if (!validateForm()) {
     return;
   }
-
+  
   try {
-    let userDataToSend = { ...detailsFormData };
-
-    // 🟡 If there's a file, convert to Base64 or upload separately and use the URL
-    if (userDataToSend.license_image instanceof File) {
-      userDataToSend.license_image = await convertFileToBase64(userDataToSend.license_image);
-    }
-
-    // ✅ View final payload in console (raw JSON)
-    console.log('Sending raw JSON to backend:', userDataToSend);
-
-    // 🟢 Send it via dispatch
+    // First create the user with basic details
+    const { confirmPassword, address, district, place, experienced, employment_type, has_bike, has_license, license_image, ...basicUserData } = formData;
+    const createResult = await dispatch(createUser(basicUserData)).unwrap();
+    const newUserId = createResult.user.id;
+    console.log(createResult.user.id) // Assuming the API returns the new user ID
+    
+    // Then add the additional details
+    const detailsData = {
+      mobile_number: formData.mobile_number,
+      address,
+      district,
+      place,
+      experienced,
+      employment_type,
+      has_bike,
+      has_license,
+      license_image: license_image ? await convertFileToBase64(license_image) : null
+    };
     await dispatch(updateUserDetails({
-      userId: selectedUserId,
-      userData: userDataToSend
+      userId: newUserId,
+      userData: detailsData
     })).unwrap();
-
-    // Reset
-    setDetailsFormData({
-      mobile_number: '',
-      address: '',
-      district: '',
-      place: '',
-      experienced: false,
-      employment_type: '',
-      has_bike: false,
-      has_license: false,
-      license_image: null
+    
+    // Reset form and close modal
+    setFormData({
+      user_name: '', mobile_number: '', role: '', password: '', confirmPassword: '',
+      address: '', district: '', place: '', experienced: false, employment_type: '',
+      has_bike: false, has_license: false, license_image: null
     });
-    setDetailsFormErrors({});
-    setIsAddDetailsModalOpen(false);
+    setFormErrors({});
+    setIsCreateModalOpen(false);
     dispatch(getUsersList());
     
   } catch (error) {
-    console.error('Error updating user details:', error);
+    console.error('Error creating user:', error);
   }
 };
+
 
   const handleViewDetails = async (userId) => {
     setSelectedUserId(userId);
     setIsViewDetailsModalOpen(true);
-    dispatch(getUserDetails(userId));
-  };
-
-  const handleAddDetails = async (userId) => {
-    setSelectedUserId(userId);
-    setIsAddDetailsModalOpen(true);
     dispatch(getUserDetails(userId));
   };
 
@@ -320,34 +352,13 @@ const handleDetailsSubmit = async (e) => {
     setSelectedUserId(null);
   };
 
-  const handleCloseAddDetailsModal = () => {
-    setIsAddDetailsModalOpen(false);
-    setSelectedUserId(null);
-    setDetailsFormData({
-      mobile_number: '',
-      address: '',
-      district: '',
-      place: '',
-      experienced: false,
-      employment_type: '',
-      has_bike: false,
-      has_license: false,
-      license_image: null
-    });
-    setDetailsFormErrors({});
-    dispatch(clearUpdateError());
-  };
-
-  const handleEdit = async (userId) => {
+const handleEdit = async (userId) => {
   const userToEdit = users.find(user => user.id === userId);
+  
+  // First get the detailed user information
+  await dispatch(getUserDetails(userId));
+  
   setSelectedUserForEdit(userToEdit);
-  setFormData({
-    user_name: userToEdit.user_name,
-    mobile_number: userToEdit.mobile_number,
-    role: userToEdit.role,
-    password: '',
-    confirmPassword: ''
-  });
   setIsEditModalOpen(true);
 };
 
@@ -432,24 +443,66 @@ const handleEditSubmit = async (e) => {
     return;
   }
   
-  const { confirmPassword, ...submitData } = formData;
+  if (!originalUserData) {
+    console.error('No original data to compare');
+    return;
+  }
   
   try {
-    await dispatch(updateUser({ 
-      userId: selectedUserForEdit.id, 
-      userData: submitData 
-    })).unwrap();
+    const { confirmPassword, address, district, place, experienced, employment_type, has_bike, has_license, license_image, ...allBasicData } = formData;
+    
+    // Get only changed basic user fields
+    const changedBasicData = getChangedFields(originalUserData, allBasicData, ['password']);
+    
+    // Handle password separately (only include if provided)
+    if (formData.password && formData.password.trim() !== '') {
+      changedBasicData.password = formData.password;
+    }
+    
+    // Only update basic user info if there are changes
+    if (Object.keys(changedBasicData).length > 0) {
+      await dispatch(updateUser({ 
+        userId: selectedUserForEdit.id, 
+        userData: changedBasicData 
+      })).unwrap();
+    }
+    
+    // Get only changed details fields
+    const currentDetailsData = {
+      mobile_number: formData.mobile_number,
+      address,
+      district,
+      place,
+      experienced,
+      employment_type,
+      has_bike,
+      has_license,
+    };
+    
+    const changedDetailsData = getChangedFields(originalUserData, currentDetailsData);
+    
+    // Handle file separately (always include if new file is selected)
+    if (license_image) {
+      changedDetailsData.license_image = await convertFileToBase64(license_image);
+    }
+    
+    // Only call updateUserDetails if there are changes
+    if (Object.keys(changedDetailsData).length > 0) {
+      await dispatch(updateUserDetails({
+        userId: selectedUserForEdit.id,
+        userData: changedDetailsData
+      })).unwrap();
+    }
     
     setFormData({
-      user_name: '',
-      mobile_number: '',
-      role: '',
-      password: '',
-      confirmPassword: ''
+      user_name: '', mobile_number: '', role: '', password: '', confirmPassword: '',
+      address: '', district: '', place: '', experienced: false, employment_type: '',
+      has_bike: false, has_license: false, license_image: null
     });
     setFormErrors({});
     setIsEditModalOpen(false);
     setSelectedUserForEdit(null);
+    setOriginalUserData(null); 
     
     dispatch(getUsersList());
     
@@ -461,12 +514,11 @@ const handleEditSubmit = async (e) => {
 const handleCloseEditModal = () => {
   setIsEditModalOpen(false);
   setSelectedUserForEdit(null);
+  setOriginalUserData(null); 
   setFormData({
-    user_name: '',
-    mobile_number: '',
-    role: '',
-    password: '',
-    confirmPassword: ''
+    user_name: '', mobile_number: '', role: '', password: '', confirmPassword: '',
+    address: '', district: '', place: '', experienced: false, employment_type: '',
+    has_bike: false, has_license: false, license_image: null
   });
   setFormErrors({});
   dispatch(clearUpdateError());
@@ -718,16 +770,6 @@ const handleCloseEditModal = () => {
                       <button 
                         onClick={(e) => {
                           e.stopPropagation();
-                          handleAddDetails(user.id);
-                        }}
-                        className="text-green-600 hover:text-green-900 p-1 rounded hover:bg-green-50"
-                        title="Add Details"
-                      >
-                        <UserPlus size={16} />
-                      </button>
-                      <button 
-                        onClick={(e) => {
-                          e.stopPropagation();
                           handleEdit(user.id);
                         }}
                         className="text-orange-600 hover:text-orange-900 p-1 rounded hover:bg-orange-50"
@@ -757,7 +799,7 @@ const handleCloseEditModal = () => {
       {/* Create User Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+          <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
             <div className="mt-3">
               <div className="flex justify-between items-center mb-4">
                 <h3 className="text-lg font-medium text-gray-900">Create New User</h3>
@@ -877,6 +919,117 @@ const handleCloseEditModal = () => {
                   )}
                 </div>
 
+                {/* Add these fields in the Create User Modal form */}
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+  <input
+    type="text"
+    name="address"
+    value={formData.address}
+    onChange={handleInputChange}
+    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    placeholder="Enter address"
+    disabled={isCreating}
+  />
+</div>
+
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">District</label>
+  <input
+    type="text"
+    name="district"
+    value={formData.district}
+    onChange={handleInputChange}
+    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    placeholder="Enter district"
+    disabled={isCreating}
+  />
+</div>
+
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">Place</label>
+  <input
+    type="text"
+    name="place"
+    value={formData.place}
+    onChange={handleInputChange}
+    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    placeholder="Enter place"
+    disabled={isCreating}
+  />
+</div>
+
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">Employment Type</label>
+  <select
+    name="employment_type"
+    value={formData.employment_type}
+    onChange={handleInputChange}
+    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    disabled={isCreating}
+  >
+    <option value="">Select employment type</option>
+    {EMPLOYMENT_TYPES.map((type) => (
+      <option key={type.value} value={type.value}>
+        {type.label}
+      </option>
+    ))}
+  </select>
+</div>
+
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">License Image</label>
+  <input
+    type="file"
+    name="license_image"
+    onChange={handleInputChange}
+    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    accept="image/*"
+    disabled={isCreating}
+  />
+</div>
+
+<div className="mb-4 flex items-center space-x-4">
+  <div className="flex items-center">
+    <input
+      type="checkbox"
+      id="experienced"
+      name="experienced"
+      checked={formData.experienced}
+      onChange={handleInputChange}
+      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+      disabled={isCreating}
+    />
+    <label htmlFor="experienced" className="ml-2 block text-sm text-gray-700">Experienced</label>
+  </div>
+
+  <div className="flex items-center">
+    <input
+      type="checkbox"
+      id="has_bike"
+      name="has_bike"
+      checked={formData.has_bike}
+      onChange={handleInputChange}
+      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+      disabled={isCreating}
+    />
+    <label htmlFor="has_bike" className="ml-2 block text-sm text-gray-700">Has Bike</label>
+  </div>
+
+  <div className="flex items-center">
+    <input
+      type="checkbox"
+      id="has_license"
+      name="has_license"
+      checked={formData.has_license}
+      onChange={handleInputChange}
+      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+      disabled={isCreating}
+    />
+    <label htmlFor="has_license" className="ml-2 block text-sm text-gray-700">Has License</label>
+  </div>
+</div>
+
                 <div className="flex space-x-3">
                   <button
                     type="button"
@@ -929,7 +1082,7 @@ const handleCloseEditModal = () => {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">User Id</label>
-                    <p className="text-sm text-gray-900">HardCoded Add After Server Update</p>
+                    <p className="text-sm text-gray-900">{userDetails.user_id}</p>
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1">Mobile Number</label>
@@ -997,199 +1150,10 @@ const handleCloseEditModal = () => {
           </div>
         </div>
       )}
-
-      {/* Add Details Modal */}
-      {isAddDetailsModalOpen && (
-        <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-          <div className="relative top-10 mx-auto p-5 border w-full max-w-3xl shadow-lg rounded-md bg-white">
-            <div className="mt-3">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-medium text-gray-900">Add/Edit User Details</h3>
-                <button
-                  onClick={handleCloseAddDetailsModal}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-              
-              <form onSubmit={handleDetailsSubmit}>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Mobile Number *
-                    </label>
-                    <input
-                        type="tel"
-                        name="mobile_number"
-                        value={detailsFormData.mobile_number}
-                        onChange={handleDetailsInputChange}
-                        className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                          detailsFormErrors.mobile_number ? 'border-red-500' : 'border-gray-300'
-                        }`}
-                        placeholder="Enter mobile number"
-                        required
-                        disabled={isUpdating}
-                      />
-                    {detailsFormErrors.mobile_number && (
-                      <p className="mt-1 text-sm text-red-600">{detailsFormErrors.mobile_number}</p>
-                    )}
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Address
-                    </label>
-                    <input
-                      type="text"
-                      name="address"
-                      value={detailsFormData.address}
-                      onChange={handleDetailsInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter address"
-                      disabled={isUpdating}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      District
-                    </label>
-                    <input
-                      type="text"
-                      name="district"
-                      value={detailsFormData.district}
-                      onChange={handleDetailsInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter district"
-                      disabled={isUpdating}
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Place
-                    </label>
-                    <input
-                      type="text"
-                      name="place"
-                      value={detailsFormData.place}
-                      onChange={handleDetailsInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="Enter place"
-                      required
-                      disabled={isUpdating}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      Employment Type
-                    </label>
-                    <select
-                      name="employment_type"
-                      value={detailsFormData.employment_type}
-                      onChange={handleDetailsInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      required
-                      disabled={isUpdating}
-                    >
-                      <option value="">Select employment type</option>
-                      {EMPLOYMENT_TYPES.map((type) => (
-                        <option key={type.value} value={type.value}>
-                          {type.label}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      License Image
-                    </label>
-                    <input
-                      type="file"
-                      name="license_image"
-                      onChange={handleDetailsInputChange}
-                      className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      accept="image/*"
-                      disabled={isUpdating}
-                    />
-                  </div>
-
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="experienced"
-                      name="experienced"
-                      checked={detailsFormData.experienced}
-                      onChange={handleDetailsInputChange}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      disabled={isUpdating}
-                    />
-                    <label htmlFor="experienced" className="ml-2 block text-sm text-gray-700">
-                      Experienced
-                    </label>
-                  </div>
-
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="has_bike"
-                      name="has_bike"
-                      checked={detailsFormData.has_bike}
-                      onChange={handleDetailsInputChange}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      disabled={isUpdating}
-                    />
-                    <label htmlFor="has_bike" className="ml-2 block text-sm text-gray-700">
-                      Has Bike
-                    </label>
-                  </div>
-
-                  <div className="flex items-center">
-                    <input
-                      type="checkbox"
-                      id="has_license"
-                      name="has_license"
-                      checked={detailsFormData.has_license}
-                      onChange={handleDetailsInputChange}
-                      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
-                      disabled={isUpdating}
-                    />
-                    <label htmlFor="has_license" className="ml-2 block text-sm text-gray-700">
-                      Has License
-                    </label>
-                  </div>
-                </div>
-
-                <div className="flex space-x-3 mt-6">
-                  <button
-                    type="button"
-                    onClick={handleCloseAddDetailsModal}
-                    className="flex-1 px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-md hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                    disabled={isUpdating}
-                  >
-                    Cancel
-                  </button>
-                  <button
-                    type="submit"
-                    disabled={isUpdating}
-                    className="flex-1 px-4 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:opacity-50"
-                  >
-                    {isUpdating ? 'Updating...' : 'Update Details'}
-                  </button>
-                </div>
-              </form>
-            </div>
-          </div>
-        </div>
-      )}
       {/* Edit User Modal */}
 {isEditModalOpen && (
   <div className="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full z-50">
-    <div className="relative top-20 mx-auto p-5 border w-full max-w-md shadow-lg rounded-md bg-white">
+    <div className="relative top-20 mx-auto p-5 border w-full max-w-2xl shadow-lg rounded-md bg-white">
       <div className="mt-3">
         <div className="flex justify-between items-center mb-4">
           <h3 className="text-lg font-medium text-gray-900">Edit User</h3>
@@ -1310,6 +1274,117 @@ const handleCloseEditModal = () => {
               )}
             </div>
           )}
+
+          {/* Add these fields in the Edit Modal after the role field */}
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">Address</label>
+  <input
+    type="text"
+    name="address"
+    value={formData.address}
+    onChange={handleInputChange}
+    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    placeholder="Enter address"
+    disabled={isUpdating}
+  />
+</div>
+
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">District</label>
+  <input
+    type="text"
+    name="district"
+    value={formData.district}
+    onChange={handleInputChange}
+    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    placeholder="Enter district"
+    disabled={isUpdating}
+  />
+</div>
+
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">Place</label>
+  <input
+    type="text"
+    name="place"
+    value={formData.place}
+    onChange={handleInputChange}
+    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    placeholder="Enter place"
+    disabled={isUpdating}
+  />
+</div>
+
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">Employment Type</label>
+  <select
+    name="employment_type"
+    value={formData.employment_type}
+    onChange={handleInputChange}
+    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    disabled={isUpdating}
+  >
+    <option value="">Select employment type</option>
+    {EMPLOYMENT_TYPES.map((type) => (
+      <option key={type.value} value={type.value}>
+        {type.label}
+      </option>
+    ))}
+  </select>
+</div>
+
+<div className="mb-4">
+  <label className="block text-sm font-medium text-gray-700 mb-1">License Image</label>
+  <input
+    type="file"
+    name="license_image"
+    onChange={handleInputChange}
+    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+    accept="image/*"
+    disabled={isUpdating}
+  />
+</div>
+
+<div className="mb-4 flex items-center space-x-4">
+  <div className="flex items-center">
+    <input
+      type="checkbox"
+      id="edit_experienced"
+      name="experienced"
+      checked={formData.experienced}
+      onChange={handleInputChange}
+      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+      disabled={isUpdating}
+    />
+    <label htmlFor="edit_experienced" className="ml-2 block text-sm text-gray-700">Experienced</label>
+  </div>
+
+  <div className="flex items-center">
+    <input
+      type="checkbox"
+      id="edit_has_bike"
+      name="has_bike"
+      checked={formData.has_bike}
+      onChange={handleInputChange}
+      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+      disabled={isUpdating}
+    />
+    <label htmlFor="edit_has_bike" className="ml-2 block text-sm text-gray-700">Has Bike</label>
+  </div>
+
+  <div className="flex items-center">
+    <input
+      type="checkbox"
+      id="edit_has_license"
+      name="has_license"
+      checked={formData.has_license}
+      onChange={handleInputChange}
+      className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded"
+      disabled={isUpdating}
+    />
+    <label htmlFor="edit_has_license" className="ml-2 block text-sm text-gray-700">Has License</label>
+  </div>
+</div>
 
           <div className="flex space-x-3">
             <button

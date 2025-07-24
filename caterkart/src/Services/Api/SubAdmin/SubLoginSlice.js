@@ -169,13 +169,12 @@ export const getAssignedUsers = createAsyncThunk(
   }
 );
 
-// NEW API: Submit attendance rating
 export const submitAttendanceRating = createAsyncThunk(
   'subAdminAuth/submitAttendanceRating',
   async (ratingData, { getState, rejectWithValue }) => {
     try {
       const { subAdminAuth } = getState();
-      const response = await axios.post(`${API_BASE_URL}/sub_admin/attendance/rate-boys/`, ratingData, {
+      const response = await axios.post(`${API_BASE_URL}/sub_admin/rate-boy/`, ratingData, {
         headers: {
           'Authorization': `Bearer ${subAdminAuth.tokens?.access}`,
           'Content-Type': 'application/json',
@@ -188,6 +187,76 @@ export const submitAttendanceRating = createAsyncThunk(
         return rejectWithValue('Session expired. Please login again.');
       }
       return rejectWithValue(error.response?.data?.message || 'Failed to submit attendance rating');
+    }
+  }
+);
+
+
+export const submitBoyWage = createAsyncThunk(
+  'subAdminAuth/submitBoyWage',
+  async (wageData, { getState, rejectWithValue }) => {
+    try {
+      const { subAdminAuth } = getState();
+      const response = await axios.patch(`${API_BASE_URL}/sub_admin/boy-wage/edit/`, wageData, {
+        headers: {
+          'Authorization': `Bearer ${subAdminAuth.tokens?.access}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 401) {
+        return rejectWithValue('Session expired. Please login again.');
+      }
+      return rejectWithValue(error.response?.data?.message || 'Failed to submit boy wage');
+    }
+  }
+);
+
+
+// Add this new API function to your slice file (paste-2.txt)
+// Add it after the submitBoyWage function
+
+export const getBoyRating = createAsyncThunk(
+  'subAdminAuth/getBoyRating',
+  async (ratingId, { getState, rejectWithValue }) => {
+    try {
+      const { subAdminAuth } = getState();
+      const response = await axios.get(`${API_BASE_URL}/sub_admin/boy-ratings/${ratingId}/`, {
+        headers: {
+          'Authorization': `Bearer ${subAdminAuth.tokens?.access}`,
+        },
+      });
+      
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 401) {
+        return rejectWithValue('Session expired. Please login again.');
+      }
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch boy rating');
+    }
+  }
+);
+
+export const updateBoyRating = createAsyncThunk(
+  'subAdminAuth/updateBoyRating',
+  async ({ ratingId, ratingData }, { getState, rejectWithValue }) => {
+    try {
+      const { subAdminAuth } = getState();
+      const response = await axios.patch(`${API_BASE_URL}/sub_admin/boy-ratings/${ratingId}/`, ratingData, {
+        headers: {
+          'Authorization': `Bearer ${subAdminAuth.tokens?.access}`,
+          'Content-Type': 'application/json',
+        },
+      });
+      
+      return response.data;
+    } catch (error) {
+      if (error.response?.status === 401) {
+        return rejectWithValue('Session expired. Please login again.');
+      }
+      return rejectWithValue(error.response?.data?.message || 'Failed to update boy rating');
     }
   }
 );
@@ -205,6 +274,17 @@ const initialState = {
   error: null,
   users: [],
   cateringWorks: [],
+boyRating: {
+  isLoading: false,
+  error: null,
+  data: null,
+  success: false,
+},
+updateRating: {
+  isLoading: false,
+  error: null,
+  success: false,
+},
   userCreation: {
     isLoading: false,
     error: null,
@@ -237,6 +317,11 @@ const initialState = {
   },
   selectedWork: null,
   showAttendanceModal: false,
+  boyWage: {
+  isLoading: false,
+  error: null,
+  success: false,
+},
 };
 
 const subAdminAuthSlice = createSlice({
@@ -250,6 +335,11 @@ const subAdminAuthSlice = createSlice({
       state.error = null;
       state.isLoading = false;
       state.users = [];
+      state.boyWage = {
+      isLoading: false,
+      error: null,
+      success: false,
+    };
       state.cateringWorks = [];
       state.userCreation = {
         isLoading: false,
@@ -324,6 +414,19 @@ const subAdminAuthSlice = createSlice({
     toggleAttendanceModal: (state, action) => {
       state.showAttendanceModal = action.payload;
     },
+    clearBoyWageState: (state) => {
+  state.boyWage.error = null;
+  state.boyWage.success = false;
+},
+clearBoyRatingState: (state) => {
+  state.boyRating.error = null;
+  state.boyRating.success = false;
+  state.boyRating.data = null;
+},
+clearUpdateRatingState: (state) => {
+  state.updateRating.error = null;
+  state.updateRating.success = false;
+},
 
   },
   extraReducers: (builder) => {
@@ -476,7 +579,21 @@ const subAdminAuthSlice = createSlice({
           localStorage.removeItem('subAdminToken');
           localStorage.removeItem('subAdminUser');
         }
-      });
+      })
+      .addCase(submitBoyWage.pending, (state) => {
+        state.boyWage.isLoading = true;
+        state.boyWage.error = null;
+      })
+      .addCase(submitBoyWage.fulfilled, (state, action) => {
+        state.boyWage.isLoading = false;
+        state.boyWage.success = true;
+        state.boyWage.error = null;
+      })
+      .addCase(submitBoyWage.rejected, (state, action) => {
+        state.boyWage.isLoading = false;
+        state.boyWage.error = action.payload;
+        state.boyWage.success = false;
+      })
   },
 });
 

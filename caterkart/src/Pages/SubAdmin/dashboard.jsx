@@ -1,9 +1,16 @@
 import React, { useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { fetchUpcomingWorks, fetchAdminStats } from '../../Services/Api/SubAdmin/DashboardSlice'
+import { 
+  fetchUpcomingWorks, 
+  fetchAdminStats, 
+  openModal, 
+  closeModal, 
+  getAssignedUsers 
+} from '../../Services/Api/SubAdmin/DashboardSlice'
 import {
   Users, CheckCircle, Clock, UserPlus, Calendar,
-  MapPin, Timer, Utensils, Building2, UserCheck
+  MapPin, Timer, Utensils, Building2, UserCheck, X,
+  User, ExternalLink, RefreshCw
 } from 'lucide-react'
 
 const SubAdminDashboard = () => {
@@ -13,7 +20,9 @@ const SubAdminDashboard = () => {
     upcomingWorks,
     adminStats,
     loading,
-    error
+    error,
+    modal,
+    assignedUsers
   } = useSelector((state) => state.subDashboard)
 
   useEffect(() => {
@@ -21,8 +30,15 @@ const SubAdminDashboard = () => {
     dispatch(fetchAdminStats())
   }, [dispatch])
 
-  const handleViewWork = (workId) => {
-    window.location.href = '/subadmin/catering-works/'
+  // Handle opening modal and fetching assigned users
+  const handleViewWork = (work) => {
+    dispatch(openModal(work))
+    dispatch(getAssignedUsers(work.id))
+  }
+
+  // Handle closing modal
+  const handleCloseModal = () => {
+    dispatch(closeModal())
   }
 
   const formatDate = (dateString) => {
@@ -41,6 +57,37 @@ const SubAdminDashboard = () => {
       minute: '2-digit',
       hour12: true
     })
+  }
+
+  // Helper functions for modal
+  const getWorkTypeColor = (workType) => {
+    switch (workType?.toLowerCase()) {
+      case 'catering':
+        return 'bg-blue-100 text-blue-800 border-blue-200'
+      case 'event':
+        return 'bg-green-100 text-green-800 border-green-200'
+      case 'wedding':
+        return 'bg-pink-100 text-pink-800 border-pink-200'
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
+
+  const getStatusColor = (status) => {
+    switch (status?.toLowerCase()) {
+      case 'completed':
+        return 'bg-green-100 text-green-800 border-green-200'
+      case 'pending':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-200'
+      case 'cancelled':
+        return 'bg-red-100 text-red-800 border-red-200'
+      default:
+        return 'bg-gray-100 text-gray-800 border-gray-200'
+    }
+  }
+
+  const formatWorkType = (workType) => {
+    return workType?.charAt(0).toUpperCase() + workType?.slice(1) || 'Unknown'
   }
 
   const statsCards = [
@@ -73,6 +120,11 @@ const SubAdminDashboard = () => {
       bgColor: 'bg-purple-50'
     }
   ]
+
+  // Get assigned users for the selected work
+  const selectedWorkAssignedUsers = modal.selectedWork 
+    ? assignedUsers.data[modal.selectedWork.id] || []
+    : []
 
   return (
     <div className="min-h-screen bg-gray-50 p-6">
@@ -169,7 +221,7 @@ const SubAdminDashboard = () => {
                   </div>
 
                   <button
-                    onClick={() => handleViewWork(work.id)}
+                    onClick={() => handleViewWork(work)}
                     className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 px-4 rounded-md transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                   >
                     View Details
@@ -186,6 +238,158 @@ const SubAdminDashboard = () => {
             <p className="text-red-800 text-sm">
               Error loading stats: {error.adminStats}
             </p>
+          </div>
+        )}
+
+        {/* Modal */}
+        {modal.isOpen && modal.selectedWork && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
+            <div className="bg-white rounded-t-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up">
+              <div className="sticky top-0 bg-white border-b border-gray-200 p-4">
+                <div className="flex items-center justify-between">
+                  <h3 className="text-lg font-semibold text-gray-900">Work Details</h3>
+                  <button
+                    onClick={handleCloseModal}
+                    className="text-gray-400 hover:text-gray-600 p-2"
+                  >
+                    <X className="h-6 w-6" />
+                  </button>
+                </div>
+              </div>
+              
+              <div className="p-4 space-y-4">
+                {/* Venue - Highlighted */}
+                <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+                  <h4 className="font-bold text-blue-900 text-xl mb-2">
+                    {modal.selectedWork.Auditorium_name || 'Venue Not Specified'}
+                  </h4>
+                  <div className="flex items-center text-blue-700">
+                    <MapPin className="h-4 w-4 mr-2" />
+                    <span>{modal.selectedWork.place || 'N/A'}, {modal.selectedWork.district || 'N/A'}</span>
+                    {modal.selectedWork.location_url && (
+                      <a
+                        href={modal.selectedWork.location_url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-blue-600 hover:text-blue-800 p-1 ml-2"
+                      >
+                        <ExternalLink className="h-4 w-4" />
+                      </a>
+                    )}
+                  </div>
+                  {modal.selectedWork.address && (
+                    <p className="text-sm text-blue-600 mt-2">{modal.selectedWork.address}</p>
+                  )}
+                </div>
+
+                {/* Work Information */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-900 mb-3">Work Information</h4>
+                  <div className="space-y-2">
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Work Type</span>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getWorkTypeColor(modal.selectedWork.work_type)}`}>
+                        {formatWorkType(modal.selectedWork.work_type)}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Status</span>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${getStatusColor(modal.selectedWork.status)}`}>
+                        {modal.selectedWork.status ? modal.selectedWork.status.charAt(0).toUpperCase() + modal.selectedWork.status.slice(1) : 'Unknown'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Published</span>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full border ${modal.selectedWork.is_published ? 'bg-green-100 text-green-800 border-green-200' : 'bg-gray-100 text-gray-800 border-gray-200'}`}>
+                        {modal.selectedWork.is_published ? 'Yes' : 'No'}
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Date</span>
+                      <span className="text-sm font-medium text-gray-900">{formatDate(modal.selectedWork.date)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Reporting Time</span>
+                      <span className="text-sm font-medium text-gray-900">{formatTime(modal.selectedWork.reporting_time)}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Boys Needed</span>
+                      <span className="text-sm font-medium text-gray-900">{modal.selectedWork.no_of_boys_needed || 0}</span>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-sm text-gray-600">Attendees</span>
+                      <span className="text-sm font-medium text-gray-900">{modal.selectedWork.attendees || 0}</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Assigned Users */}
+                <div className="bg-gray-50 rounded-lg p-4">
+                  <h4 className="font-semibold text-gray-900 mb-3">Assigned Users</h4>
+                  {loading.assignedUsers ? (
+                    <div className="text-center py-4">
+                      <RefreshCw className="h-5 w-5 animate-spin mx-auto text-blue-500" />
+                      <p className="text-sm text-gray-600 mt-2">Loading assigned users...</p>
+                    </div>
+                  ) : selectedWorkAssignedUsers.length === 0 ? (
+                    <p className="text-sm text-gray-600">No users assigned to this work.</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {selectedWorkAssignedUsers.map((user) => (
+                        <div key={user.id} className="flex items-center justify-between p-3 bg-white rounded-lg border border-gray-200">
+                          <div className="flex items-center">
+                            <div className="flex items-center justify-center w-8 h-8 bg-blue-100 rounded-full mr-3">
+                              <User className="h-4 w-4 text-blue-600" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-900">{user.user_name}</p>
+                              <p className="text-xs text-gray-500">{user.email}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${user.type === 'supervisor' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'}`}>
+                              {user.type}
+                            </span>
+                            <span className="text-xs text-gray-500">
+                              {formatDate(user.assigned_at)}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+
+                {/* Instructions */}
+                {modal.selectedWork.instructions && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-900 mb-3">Instructions</h4>
+                    <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+                      {modal.selectedWork.instructions}
+                    </p>
+                  </div>
+                )}
+
+                {/* About Work */}
+                {modal.selectedWork.About_work && (
+                  <div className="bg-gray-50 rounded-lg p-4">
+                    <h4 className="font-semibold text-gray-900 mb-3">About Work</h4>
+                    <p className="text-sm text-gray-700 whitespace-pre-line leading-relaxed">
+                      {modal.selectedWork.About_work}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              <div className="sticky bottom-0 bg-white border-t border-gray-200 p-4">
+                <button
+                  onClick={handleCloseModal}
+                  className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

@@ -17,7 +17,10 @@ import {
   Building,
   ChefHat,
   FileText,
-  Info
+  Info,
+  Phone,        // Add this
+  Bike,         // Add this  
+  CreditCard    // Add this
 } from 'lucide-react';
 
 import { 
@@ -74,17 +77,21 @@ const Toast = ({ message, type, onClose }) => {
 
 const Works = () => {
   const dispatch = useDispatch();
-  const { 
-    works, 
-    workRequests, 
-    assignedUsers, 
-    loading, 
-    error,
-    selectedWork,
-    showDetailModal,
-    showSupervisorModal,
-    showBoyModal
-  } = useSelector(state => state.work);
+const { 
+  works, 
+  upcomingWorks,
+  pastWorks,
+  workRequests, 
+  assignedUsers, 
+  loading, 
+  error,
+  selectedWork,
+  showDetailModal,
+  showSupervisorModal,
+  showBoyModal,
+  activeTab = 'upcoming' // Add default value
+} = useSelector(state => state.work);
+
   const { users } = useSelector(state => state.users);
   
   const [showModal, setShowModal] = useState(false);
@@ -119,10 +126,11 @@ const Works = () => {
     about_work: ''
   });
 
-  useEffect(() => {
-    dispatch(fetchWorks());
-    dispatch(getUsersList());
-  }, [dispatch]);
+useEffect(() => {
+  dispatch(fetchWorks('upcoming'));
+  dispatch(fetchWorks('past'));
+  dispatch(getUsersList());
+}, [dispatch]);
 
   useEffect(() => {
     const boys = users.filter(user => user.role === 'boys');
@@ -179,6 +187,14 @@ const Works = () => {
       ...prev,
       [name]: value
     }));
+  };
+
+const handleTabChange = (tab) => {
+  dispatch({ type: 'work/setActiveTab', payload: tab });
+};
+
+    const getCurrentWorks = () => {
+    return activeTab === 'upcoming' ? upcomingWorks : pastWorks;
   };
 
 const handleWorkClick = async (work) => {
@@ -356,7 +372,8 @@ const handleAssignBoys = async () => {
       await dispatch(publishWork({ id: work.id, is_published: newStatus })).unwrap();
 
       // ✅ Refresh the list so UI shows updated status
-      await dispatch(fetchWorks());
+      await dispatch(fetchWorks('upcoming'));
+      await dispatch(fetchWorks('past'));
 
       const message = newStatus 
         ? 'Work published successfully! It\'s now visible to workers.' 
@@ -503,41 +520,91 @@ const handleAssignBoys = async () => {
   </div>
 )}
 
-{/* Works Grid - Remove tabs, show only works */}
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-  {works.map((work) => (
-    <div key={work.id} className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex-1">
-          {/* Auditorium name as main heading */}
-          <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
-            <Building className="h-5 w-5 text-blue-600" />
-            {work.Auditorium_name || 'Auditorium Not Specified'}
-          </h3>
-          {/* Catering company as sub-heading */}
-          {work.Catering_company && (
-            <p className="text-md text-gray-700 mb-2 flex items-center gap-2 font-medium">
-              <ChefHat className="h-4 w-4 text-orange-600" />
-              {work.Catering_company}
-            </p>
-          )}
-          <p className="text-sm text-gray-500">Customer: {work.customer_name}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleEdit(work)}
-            className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
-          >
-            <Edit2 className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => handleDelete(work.id)}
-            className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+<div className="mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => handleTabChange('upcoming')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'upcoming'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Upcoming Works
+              {upcomingWorks.length > 0 && (
+                <span className="ml-2 bg-blue-100 text-blue-600 py-0.5 px-2 rounded-full text-xs">
+                  {upcomingWorks.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => handleTabChange('past')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'past'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Past Works
+              {pastWorks.length > 0 && (
+                <span className="ml-2 bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-xs">
+                  {pastWorks.length}
+                </span>
+              )}
+            </button>
+          </nav>
         </div>
       </div>
+
+{/* Works Grid - Remove tabs, show only works */}
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {getCurrentWorks().map((work) => (
+          <div key={work.id} className={`bg-white rounded-lg shadow-md p-6 border ${
+            activeTab === 'past' ? 'border-gray-300 opacity-75' : 'border-gray-200'
+          }`}>
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex-1">
+                {/* Auditorium name as main heading */}
+                <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                  <Building className="h-5 w-5 text-blue-600" />
+                  {work.Auditorium_name || 'Auditorium Not Specified'}
+                </h3>
+                {/* Add status indicator for past works */}
+                {activeTab === 'past' && (
+                  <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded mb-2">
+                    Completed
+                  </span>
+                )}
+                {/* Catering company as sub-heading */}
+                {work.Catering_company && (
+                  <p className="text-md text-gray-700 mb-2 flex items-center gap-2 font-medium">
+                    <ChefHat className="h-4 w-4 text-orange-600" />
+                    {work.Catering_company}
+                  </p>
+                )}
+                <p className="text-sm text-gray-500">Customer: {work.customer_name}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Only show edit/delete for upcoming works */}
+                {activeTab === 'upcoming' && (
+                  <>
+                    <button
+                      onClick={() => handleEdit(work)}
+                      className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(work.id)}
+                      className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
       
       {/* About Work Section */}
       {work.about_work && (
@@ -614,38 +681,57 @@ const handleAssignBoys = async () => {
         {/* Action Buttons */}
         <div className="space-y-2">
           {/* View Details Button */}
-          <button
-            onClick={() => handleWorkClick(work)}
-            className="w-full py-2 px-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium text-sm flex items-center justify-center gap-2"
-          >
-            <Users className="h-4 w-4" />
-            View Details & Manage
-          </button>
+                  <button
+                  onClick={() => handleWorkClick(work)}
+                  className="w-full py-2 px-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium text-sm flex items-center justify-center gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  View Details {activeTab === 'past' ? '& History' : '& Manage'}
+                </button> 
           
           {/* Publish Button */}
-          <button
-            onClick={() => handlePublishToggle(work)}
-            disabled={publishingWorkId === work.id}
-            className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
-              work.is_published 
-                ? 'bg-red-600 text-white hover:bg-red-700' 
-                : 'bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            {publishingWorkId === work.id ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Processing...
-              </>
-            ) : (
-              work.is_published ? 'Unpublish' : 'Publish'
-            )}
-          </button>
+                {activeTab === 'upcoming' && (
+                  <button
+                    onClick={() => handlePublishToggle(work)}
+                    disabled={publishingWorkId === work.id}
+                    className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                      work.is_published 
+                        ? 'bg-red-600 text-white hover:bg-red-700' 
+                        : 'bg-green-600 text-white hover:bg-green-700'
+                    }`}
+                  >
+                    {publishingWorkId === work.id ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Processing...
+                      </>
+                    ) : (
+                      work.is_published ? 'Unpublish' : 'Publish'
+                    )}
+                  </button>
+                )}
         </div>
       </div>
     </div>
   ))}
 </div>
+
+{getCurrentWorks().length === 0 && (
+        <div className="text-center py-12">
+          <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
+            <Building className="h-12 w-12" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No {activeTab} works found
+          </h3>
+          <p className="text-sm text-gray-500">
+            {activeTab === 'upcoming' 
+              ? "Click 'Add Work' to create your first work."
+              : "No completed works to display yet."
+            }
+          </p>
+        </div>
+      )}
 
       {/* Enhanced Modal */}
       {showModal && (
@@ -968,28 +1054,28 @@ const handleAssignBoys = async () => {
 
 {/* Work Details Modal */}
 {showDetailModal && selectedWork && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-lg p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
-            <div className="flex justify-between items-center mb-6">
-              <div>
-              <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
-                <Building className="h-6 w-6 text-blue-600" />
-                {selectedWork.Auditorium_name || 'Work Details'}
-              </h2>
-              {selectedWork.Catering_company && (
-                <p className="text-lg text-gray-600 flex items-center gap-2 mt-1">
-                  <ChefHat className="h-5 w-5 text-orange-600" />
-                  {selectedWork.Catering_company}
-                </p>
-              )}
-            </div>
-              <button
-                onClick={handleCloseDetailModal} // Updated
-                className="text-gray-500 hover:text-gray-700"
-              >
-                <X className="h-6 w-6" />
-              </button>
-            </div>
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div className="bg-white rounded-lg p-6 w-full max-w-7xl max-h-[90vh] overflow-y-auto">
+      <div className="flex justify-between items-center mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
+            <Building className="h-6 w-6 text-blue-600" />
+            {selectedWork.Auditorium_name || 'Work Details'}
+          </h2>
+          {selectedWork.Catering_company && (
+            <p className="text-lg text-gray-600 flex items-center gap-2 mt-1">
+              <ChefHat className="h-5 w-5 text-orange-600" />
+              {selectedWork.Catering_company}
+            </p>
+          )}
+        </div>
+        <button
+          onClick={handleCloseDetailModal}
+          className="text-gray-500 hover:text-gray-700"
+        >
+          <X className="h-6 w-6" />
+        </button>
+      </div>
 
       {/* Work Information */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
@@ -1025,76 +1111,117 @@ const handleAssignBoys = async () => {
         </div>
       </div>
 
-      {/* Assigned Users Section */}
-<div className="mb-6">
-  <h3 className="text-lg font-semibold text-gray-900 mb-4">Assigned Users</h3>
-
-  {assignedUsers.users && assignedUsers.users.length > 0 ? (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {assignedUsers.users.map((user) => (
-        <div key={user.id} className="bg-gray-50 p-4 rounded-lg">
-          <div className="flex items-center justify-between">
-            <div>
-              <h4 className="font-medium text-gray-900">{user.user_name}</h4>
-              <p className="text-sm text-gray-500">
-                {user.role === 'supervisor' ? 'Supervisor' : 'Worker'}
-              </p>
-              {user.email && (
-                <p className="text-sm text-gray-500">{user.email}</p>
-              )}
-            </div>
-            <div className="text-right">
-              <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium ${
-                user.role === 'supervisor' 
-                  ? 'bg-blue-100 text-blue-800' 
-                  : 'bg-green-100 text-green-800'
-              }`}>
-                {user.role}
-              </span>
-              <p className="text-xs text-gray-400 mt-1">
-                Assigned: {new Date(user.assigned_at).toLocaleDateString()}
-              </p>
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
-  ) : (
-    <div className="bg-gray-50 p-4 rounded-lg text-center">
-      <Users className="mx-auto h-8 w-8 text-gray-400 mb-2" />
-      <p className="text-sm text-gray-500">No users assigned yet</p>
-    </div>
-  )}
-</div>
-
-
-      {/* Supervisor Assignment */}
+      {/* Assigned Users Table */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Supervisor Assignment</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Assigned Users</h3>
           <div className="flex gap-2">
-              <button
-                onClick={handleOpenBoyModal} // Updated
-                className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Add Boy
-              </button>
-              <button
-                onClick={handleOpenSupervisorModal} // Updated
-                className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-              >
-                <Plus className="h-4 w-4" />
-                Assign Supervisors
-              </button>
-            </div>
+            <button
+              onClick={handleOpenBoyModal}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
+            >
+              <Plus className="h-4 w-4" />
+              Add Boy
+            </button>
+            <button
+              onClick={handleOpenSupervisorModal}
+              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm"
+            >
+              <Plus className="h-4 w-4" />
+              Assign Supervisors
+            </button>
+          </div>
         </div>
+
+        {assignedUsers.users && assignedUsers.users.length > 0 ? (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Mobile
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Place
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Role
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Assigned Date
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {assignedUsers.users.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {user.user_name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {user.mobile}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {user.place}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                          user.role === 'supervisor' || user.type === 'supervisor'
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {user.role === 'supervisor' || user.type === 'supervisor' ? 'Supervisor' : 'Boy'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {new Date(user.assigned_at).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          })}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(user.assigned_at).toLocaleTimeString('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-gray-50 p-8 rounded-lg text-center">
+            <Users className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+            <h4 className="text-lg font-medium text-gray-900 mb-2">No Users Assigned</h4>
+            <p className="text-sm text-gray-500">
+              Click the buttons above to assign supervisors or boys to this work.
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Work Requests Table */}
+      {/* Work Requests Table - Only show pending requests */}
       <div className="bg-white rounded-lg shadow-md">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Work Requests</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Pending Work Requests</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Review and manage pending requests from boys
+          </p>
         </div>
         
         <div className="overflow-x-auto">
@@ -1108,7 +1235,7 @@ const handleAssignBoys = async () => {
                   Experience & Skills
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                  Request Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -1116,78 +1243,81 @@ const handleAssignBoys = async () => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {workRequests.map((request) => (
-                <tr key={request.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
+              {workRequests
+                .filter(request => request.status === 'pending') // Filter only pending requests
+                .map((request) => (
+                <tr key={request.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
                         {request.boy?.user_name || 'N/A'}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-500 flex items-center gap-1">
+                        <Phone className="h-3 w-3" />
                         {request.boy?.mobile_number || 'N/A'}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-500 flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
                         {request.boy?.place}, {request.boy?.district}
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        Requested: {new Date(request.requested_at).toLocaleDateString()}
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1">
                       {request.boy?.experienced && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          <CheckCircle className="h-3 w-3 mr-1" />
                           Experienced
                         </span>
                       )}
                       {request.boy?.has_bike && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          <Bike className="h-3 w-3 mr-1" />
                           Has Bike
                         </span>
                       )}
                       {request.boy?.has_license && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                          <CreditCard className="h-3 w-3 mr-1" />
                           Licensed
                         </span>
+                      )}
+                      {!request.boy?.experienced && !request.boy?.has_bike && !request.boy?.has_license && (
+                        <span className="text-xs text-gray-500">No special skills listed</span>
                       )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="space-y-1">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
-                        {getStatusIcon(request.status)}
-                        {request.status}
-                      </span>
-                      {request.assigned === 1 && (
-                        <div>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
-                            Assigned
-                          </span>
-                        </div>
-                      )}
+                    <div className="text-sm text-gray-900">
+                      {new Date(request.requested_at).toLocaleDateString('en-GB')}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(request.requested_at).toLocaleTimeString('en-GB', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {request.status === 'pending' && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleBoyAction(request.id, 'assign')}
-                          className="text-green-600 hover:text-green-900 px-3 py-1 rounded hover:bg-green-50 text-sm border border-green-200"
-                        >
-                          Assign
-                        </button>
-                        <button
-                          onClick={() => handleBoyAction(request.id, 'reject')}
-                          className="text-red-600 hover:text-red-900 px-3 py-1 rounded hover:bg-red-50 text-sm border border-red-200"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    )}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleBoyAction(request.id, 'assign')}
+                        className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-green-700 bg-green-100 hover:bg-green-200 border border-green-200 transition-colors"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Accept
+                      </button>
+                      <button
+                        onClick={() => handleBoyAction(request.id, 'reject')}
+                        className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 border border-red-200 transition-colors"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Reject
+                      </button>
+                    </div>
                     {request.comment && (
-                      <div className="mt-2 text-xs text-gray-500">
-                        Comment: {request.comment}
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
+                        <strong>Comment:</strong> {request.comment}
                       </div>
                     )}
                   </td>
@@ -1197,16 +1327,59 @@ const handleAssignBoys = async () => {
           </table>
         </div>
         
-        {/* Empty state */}
-        {workRequests.length === 0 && (
+        {/* Empty state for pending requests */}
+        {workRequests.filter(request => request.status === 'pending').length === 0 && (
           <div className="text-center py-12">
-            <Users className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No work requests</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              No boys have requested this work yet.
+            <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h4 className="text-lg font-medium text-gray-900 mb-2">No Pending Requests</h4>
+            <p className="text-sm text-gray-500">
+              All work requests have been processed or no boys have requested this work yet.
             </p>
           </div>
         )}
+      </div>
+
+      {/* Summary Stats */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-600">Total Assigned</p>
+              <p className="text-2xl font-bold text-blue-900">
+                {assignedUsers.users ? assignedUsers.users.length : 0}
+              </p>
+            </div>
+            <Users className="h-8 w-8 text-blue-600" />
+          </div>
+        </div>
+        
+        <div className="bg-yellow-50 p-4 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-yellow-600">Pending Requests</p>
+              <p className="text-2xl font-bold text-yellow-900">
+                {workRequests.filter(r => r.status === 'pending').length}
+              </p>
+            </div>
+            <Clock className="h-8 w-8 text-yellow-600" />
+          </div>
+        </div>
+        
+        <div className="bg-green-50 p-4 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-green-600">Total Requests</p>
+              <p className="text-2xl font-bold text-green-900">
+                {workRequests.length}
+              </p>
+            </div>
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+        </div>
       </div>
     </div>
   </div>

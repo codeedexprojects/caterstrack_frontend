@@ -149,7 +149,6 @@ const UserManagement = () => {
     const newErrors = {};
 
     if (!createFormData.user_name.trim()) newErrors.user_name = 'Username is required';
-    if (!createFormData.email.trim()) newErrors.email = 'Email is required';
     if (!createFormData.password.trim()) newErrors.password = 'Password is required';
     if (!createFormData.mobile_number.trim()) newErrors.mobile_number = 'Mobile number is required';
     if (!createFormData.role.trim()) newErrors.role = 'Role is required';
@@ -172,7 +171,6 @@ const UserManagement = () => {
     const newErrors = {};
 
     if (!editFormData.user_name.trim()) newErrors.user_name = 'Username is required';
-    if (!editFormData.email.trim()) newErrors.email = 'Email is required';
     if (!editFormData.mobile_number.trim()) newErrors.mobile_number = 'Mobile number is required';
     if (!editFormData.role.trim()) newErrors.role = 'Role is required';
 

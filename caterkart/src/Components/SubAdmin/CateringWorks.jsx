@@ -1,30 +1,40 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { getCateringWorkList, getAssignedUsers, submitAttendanceRating } from '../../Services/Api/SubAdmin/SubLoginSlice';
+import { getCateringWorkList, getAssignedUsers, submitAttendanceRating,getBoyRating, updateBoyRating,submitBoyWage } from '../../Services/Api/SubAdmin/SubLoginSlice';
 import { Search, Filter, Calendar, MapPin, User, Phone, Eye, AlertCircle, RefreshCw, Users, Clock, ExternalLink, Star, StarOff, CheckCircle, X } from 'lucide-react';
 
 const CateringWorks = () => {
   const dispatch = useDispatch();
-  const { cateringWorkList, assignedUsers, attendanceRating } = useSelector((state) => state.subAdminAuth);
+  const { cateringWorkList, assignedUsers, attendanceRating, boyWage } = useSelector((state) => state.subAdminAuth);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [filterStatus, setFilterStatus] = useState('all');
   const [filterWorkType, setFilterWorkType] = useState('all');
   const [selectedWork, setSelectedWork] = useState(null);
   const [showModal, setShowModal] = useState(false);
-  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
   const [currentRatingUser, setCurrentRatingUser] = useState(null);
   const [currentWorkId, setCurrentWorkId] = useState(null);
-  const [ratings, setRatings] = useState({
-    pant: false,
-    shoe: false,
-    timing: false,
-    neatness: false,
-    performance: false,
+  const [showAssignedUsersModal, setShowAssignedUsersModal] = useState(false);
+  const [selectedWorkForUsers, setSelectedWorkForUsers] = useState(null);
+  const [showRatingModal, setShowRatingModal] = useState(false);
+  const [selectedUserForRating, setSelectedUserForRating] = useState(null);
+  const [editingRatingId, setEditingRatingId] = useState(null);
+const [isEditMode, setIsEditMode] = useState(false);
+const { boyRating, updateRating } = useSelector((state) => state.subAdminAuth);
+  const [ratingData, setRatingData] = useState({
+    pant: null,
+    shoe: null,
+    timing: null,
+    neatness: null,
+    performance: null,
+    comment: '',
+    arrival_time: '',
+    attendence: 1,
     travel_allowance: '',
     over_time: '',
+    long_fare: '',
     bonus: '',
-    long_fare: ''
+    payment_status: 'not_paid'
   });
 
   useEffect(() => {
@@ -112,53 +122,31 @@ const CateringWorks = () => {
     dispatch(getAssignedUsers(work.id));
   };
 
+  // Add this useEffect to populate form when editing
+useEffect(() => {
+  if (isEditMode && boyRating.data && !boyRating.isLoading) {
+    const rating = boyRating.data;
+    setRatingData({
+      pant: rating.pant,
+      shoe: rating.shoe,
+      timing: rating.timing,
+      neatness: rating.neatness,
+      performance: rating.performance,
+      comment: rating.comment || '',
+      arrival_time: rating.arrival_time || '',
+      attendence: rating.attendence,
+      travel_allowance: rating.travel_allowance || '',
+      over_time: rating.over_time || '',
+      long_fare: rating.long_fare || '',
+      bonus: rating.bonus || '',
+      payment_status: rating.payment_status || 'not_paid'
+    });
+  }
+}, [isEditMode, boyRating.data, boyRating.isLoading]);
+
   const closeModal = () => {
     setSelectedWork(null);
     setShowModal(false);
-  };
-
-  const openAttendanceModal = (work) => {
-    setCurrentWorkId(work.id);
-    setShowAttendanceModal(true);
-    // Fetch assigned users for this work
-    dispatch(getAssignedUsers(work.id));
-  };
-
-  const closeAttendanceModal = () => {
-    setShowAttendanceModal(false);
-    setCurrentRatingUser(null);
-    setCurrentWorkId(null);
-    setRatings({
-      pant: false,
-      shoe: false,
-      timing: false,
-      neatness: false,
-      performance: false,
-      travel_allowance: '',
-      over_time: '',
-      bonus: '',
-      long_fare: ''
-    });
-  };
-
-  const submitRating = () => {
-    if (!currentRatingUser || !currentWorkId) return;
-
-    const ratingData = {
-      user: currentRatingUser.user_id,
-      work: currentWorkId,
-      pant: ratings.pant,
-      shoe: ratings.shoe,
-      timing: ratings.timing,
-      neatness: ratings.neatness,
-      performance: ratings.performance,
-      travel_allowance: ratings.travel_allowance ? parseFloat(ratings.travel_allowance) : 0,
-      over_time: ratings.over_time ? parseFloat(ratings.over_time) : 0,
-      bonus: ratings.bonus ? parseFloat(ratings.bonus) : 0,
-      long_fare: ratings.long_fare ? parseFloat(ratings.long_fare) : 0
-    };
-    console.log(ratingData);
-    dispatch(submitAttendanceRating(ratingData));
   };
 
   const handleRatingChange = (field, value) => {
@@ -258,8 +246,6 @@ const CateringWorks = () => {
         </div>
       )}
 
-      {/* Works Cards */}
-      {/* Updated Work Cards Section */}
 {!cateringWorkList.isLoading && !cateringWorkList.error && (
   <div className="space-y-3">
     {filteredWorks.length === 0 ? (
@@ -279,68 +265,65 @@ const CateringWorks = () => {
             </span>
           </div>
 
-          {/* Venue - Highlighted */}
-          <div className="mb-3">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">{work.Auditorium_name || 'Venue Not Specified'}</h3>
-            <div className="flex items-center text-sm text-gray-600">
-              <MapPin className="h-4 w-4 mr-1" />
-              <span className="flex-1">{work.place || 'N/A'}, {work.district || 'N/A'}</span>
-              {work.location_url && (
-                <a
-                  href={work.location_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:text-blue-800 p-1 ml-2"
-                >
-                  <ExternalLink className="h-4 w-4" />
-                </a>
-              )}
+          {/* Clickable Card Content */}
+          <div 
+            onClick={() => openModal(work)}
+            className="cursor-pointer"
+          >
+            {/* Venue - Highlighted */}
+            <div className="mb-3">
+              <h3 className="text-lg font-bold text-gray-900 mb-1">{work.Auditorium_name || 'Venue Not Specified'}</h3>
+              <div className="flex items-center text-sm text-gray-600">
+                <MapPin className="h-4 w-4 mr-1" />
+                <span className="flex-1">{work.place || 'N/A'}, {work.district || 'N/A'}</span>
+                {work.location_url && (
+                  <a
+                    href={work.location_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-blue-600 hover:text-blue-800 p-1 ml-2"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <ExternalLink className="h-4 w-4" />
+                  </a>
+                )}
+              </div>
+            </div>
+
+            {/* Date & Time */}
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="flex items-center mb-1">
+                  <Calendar className="h-4 w-4 text-gray-400 mr-2" />
+                  <span className="text-xs text-gray-500">Date</span>
+                </div>
+                <span className="text-sm font-semibold text-gray-900">{formatDate(work.date)}</span>
+              </div>
+              <div className="bg-gray-50 rounded-lg p-3">
+                <div className="flex items-center mb-1">
+                  <Clock className="h-4 w-4 text-gray-400 mr-2" />
+                  <span className="text-xs text-gray-500">Time</span>
+                </div>
+                <span className="text-sm font-semibold text-gray-900">{formatTime(work.reporting_time)}</span>
+              </div>
             </div>
           </div>
 
-          {/* Date & Time */}
-          <div className="grid grid-cols-2 gap-3 mb-3">
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="flex items-center mb-1">
-                <Calendar className="h-4 w-4 text-gray-400 mr-2" />
-                <span className="text-xs text-gray-500">Date</span>
-              </div>
-              <span className="text-sm font-semibold text-gray-900">{formatDate(work.date)}</span>
-            </div>
-            <div className="bg-gray-50 rounded-lg p-3">
-              <div className="flex items-center mb-1">
-                <Clock className="h-4 w-4 text-gray-400 mr-2" />
-                <span className="text-xs text-gray-500">Time</span>
-              </div>
-              <span className="text-sm font-semibold text-gray-900">{formatTime(work.reporting_time)}</span>
-            </div>
-          </div>
-
-          {/* Boys Count */}
-          <div className="bg-blue-50 rounded-lg p-3 mb-4">
+          {/* Boys Needed - Now a Button */}
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              setSelectedWorkForUsers(work);
+              setShowAssignedUsersModal(true);
+              dispatch(getAssignedUsers(work.id));
+            }}
+            className="w-full bg-blue-50 hover:bg-blue-100 rounded-lg p-3 mb-4 transition-colors"
+          >
             <div className="flex items-center justify-center">
               <Users className="h-5 w-5 text-blue-600 mr-2" />
               <span className="text-base font-bold text-blue-900">{work.no_of_boys_needed || 0} Boys Needed</span>
             </div>
-          </div>
-
-          {/* Action Buttons */}
-          <div className="flex gap-2">
-            <button
-              onClick={() => openModal(work)}
-              className="flex-1 bg-blue-50 text-blue-700 border border-blue-200 rounded-lg py-2 px-4 text-sm font-medium hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 flex items-center justify-center"
-            >
-              <Eye className="h-4 w-4 mr-2" />
-              View Details
-            </button>
-            <button
-              onClick={() => openAttendanceModal(work)}
-              className="flex-1 bg-green-50 text-green-700 border border-green-200 rounded-lg py-2 px-4 text-sm font-medium hover:bg-green-100 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 flex items-center justify-center"
-            >
-              <Star className="h-4 w-4 mr-2" />
-              Mark Attendance
-            </button>
-          </div>
+          </button>
         </div>
       ))
     )}
@@ -492,6 +475,393 @@ const CateringWorks = () => {
     </div>
   </div>
 )}
+
+{/* Assigned Users Modal */}
+{showAssignedUsersModal && selectedWorkForUsers && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
+    <div className="bg-white rounded-t-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up">
+      <div className="sticky top-0 bg-white border-b border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">Assigned Boys</h3>
+          <button
+            onClick={() => {
+              setShowAssignedUsersModal(false);
+              setSelectedWorkForUsers(null);
+            }}
+            className="text-gray-400 hover:text-gray-600 p-2"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+      </div>
+      
+      <div className="p-4 space-y-4">
+        {assignedUsers.isLoading ? (
+          <div className="text-center py-8">
+            <RefreshCw className="h-5 w-5 animate-spin mx-auto text-blue-500" />
+            <p className="text-sm text-gray-600 mt-2">Loading assigned users...</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {(assignedUsers.data[selectedWorkForUsers.id] || []).map((user) => (
+              <div key={user.id} className="bg-gray-50 rounded-lg p-4">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center">
+                    <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full mr-3">
+                      <User className="h-5 w-5 text-blue-600" />
+                    </div>
+                    <div>
+                      <p className="text-base font-medium text-gray-900">{user.user_name}</p>
+                      <p className="text-sm text-gray-500">{user.payment_status}</p>
+                      <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full mt-1 ${
+                        user.type === 'supervisor' ? 'bg-purple-100 text-purple-800' : 'bg-green-100 text-green-800'
+                      }`}>
+                        {user.type}
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    {/* Rate Button */}
+                    <button
+                      onClick={() => {
+                        setSelectedUserForRating(user);
+                        setShowRatingModal(true);
+                        setIsEditMode(false);
+                        setEditingRatingId(null);
+                        setRatingData({
+                          pant: null,
+                          shoe: null,
+                          timing: null,
+                          neatness: null,
+                          performance: null,
+                          comment: '',
+                          arrival_time: '',
+                          attendence: 1,
+                          travel_allowance: '',
+                          over_time: '',
+                          long_fare: '',
+                          bonus: '',
+                          payment_status: 'not_paid'
+                        });
+                      }}
+                      className="bg-blue-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-blue-700"
+                    >
+                      Rate
+                    </button>
+                    
+                    {/* Edit Rating Button - Show if rating exists */}
+                    {user.rating_id && (
+                      <button
+                        onClick={() => {
+                          setSelectedUserForRating(user);
+                          setIsEditMode(true);
+                          setEditingRatingId(user.rating_id);
+                          setShowRatingModal(true);
+                          // Fetch existing rating data
+                          dispatch(getBoyRating(user.rating_id));
+                        }}
+                        className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-700"
+                      >
+                        Edit
+                      </button>
+                    )}
+                  </div>
+                </div>
+                
+                {/* Show rating status if exists */}
+                {user.rating_id && (
+                  <div className="mt-2 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
+                    ✓ Rating submitted
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  </div>
+)}
+
+
+
+{/* Rating Modal with Stars */}
+{/* Updated Rating Modal with Boolean Stars and Wage Section */}
+{showRatingModal && selectedUserForRating && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
+    <div className="bg-white rounded-t-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up">
+      <div className="sticky top-0 bg-white border-b border-gray-200 p-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-lg font-semibold text-gray-900">
+            {isEditMode ? 'Edit Rating for' : 'Rate'} {selectedUserForRating.user_name}
+          </h3>
+          <button
+            onClick={() => {
+              setShowRatingModal(false);
+              setSelectedUserForRating(null);
+              setIsEditMode(false);
+              setEditingRatingId(null);
+            }}
+            className="text-gray-400 hover:text-gray-600 p-2"
+          >
+            <X className="h-6 w-6" />
+          </button>
+        </div>
+      </div>
+      
+      <div className="p-4 space-y-6 pb-40">
+        {/* Loading existing rating data */}
+        {isEditMode && boyRating.isLoading && (
+          <div className="text-center py-8">
+            <RefreshCw className="h-5 w-5 animate-spin mx-auto text-blue-500" />
+            <p className="text-sm text-gray-600 mt-2">Loading existing rating...</p>
+          </div>
+        )}
+
+        {/* Boolean Rating Components */}
+        {['pant', 'shoe', 'timing', 'neatness', 'performance'].map((category) => (
+          <div key={category}>
+            <label className="block text-base font-medium text-gray-700 mb-3 capitalize">
+              {category}
+            </label>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setRatingData(prev => ({...prev, [category]: true}))}
+                className={`flex-1 py-3 px-4 rounded-lg border font-medium flex items-center justify-center ${
+                  ratingData[category] === true
+                    ? 'bg-green-50 border-green-200 text-green-700'
+                    : 'bg-gray-50 border-gray-200 text-gray-700'
+                }`}
+              >
+                <CheckCircle className="h-4 w-4 mr-2" />
+                Good
+              </button>
+              <button
+                onClick={() => setRatingData(prev => ({...prev, [category]: false}))}
+                className={`flex-1 py-3 px-4 rounded-lg border font-medium flex items-center justify-center ${
+                  ratingData[category] === false
+                    ? 'bg-red-50 border-red-200 text-red-700'
+                    : 'bg-gray-50 border-gray-200 text-gray-700'
+                }`}
+              >
+                <X className="h-4 w-4 mr-2" />
+                Poor
+              </button>
+            </div>
+          </div>
+        ))}
+
+        {/* Arrival Time */}
+        <div>
+          <label className="block text-base font-medium text-gray-700 mb-3">Arrival Time</label>
+          <input
+            type="time"
+            value={ratingData.arrival_time}
+            onChange={(e) => setRatingData(prev => ({...prev, arrival_time: e.target.value}))}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          />
+        </div>
+
+        {/* Comment */}
+        <div>
+          <label className="block text-base font-medium text-gray-700 mb-3">Comment</label>
+          <textarea
+            value={ratingData.comment}
+            onChange={(e) => setRatingData(prev => ({...prev, comment: e.target.value}))}
+            rows={3}
+            className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+            placeholder="Add your comments..."
+          />
+        </div>
+
+        {/* Attendance Toggle */}
+        <div>
+          <label className="block text-base font-medium text-gray-700 mb-3">Attendance</label>
+          <div className="flex gap-3">
+            <button
+              onClick={() => setRatingData(prev => ({...prev, attendence: 1}))}
+              className={`flex-1 py-3 px-4 rounded-lg border font-medium ${
+                ratingData.attendence === 1
+                  ? 'bg-green-50 border-green-200 text-green-700'
+                  : 'bg-gray-50 border-gray-200 text-gray-700'
+              }`}
+            >
+              Present
+            </button>
+            <button
+              onClick={() => setRatingData(prev => ({...prev, attendence: 0}))}
+              className={`flex-1 py-3 px-4 rounded-lg border font-medium ${
+                ratingData.attendence === 0
+                  ? 'bg-red-50 border-red-200 text-red-700'
+                  : 'bg-gray-50 border-gray-200 text-gray-700'
+              }`}
+            >
+              Absent
+            </button>
+          </div>
+        </div>
+
+        {/* Wage Section */}
+        <div className="bg-blue-50 rounded-lg p-4 border border-blue-200">
+          <h4 className="text-lg font-semibold text-blue-900 mb-4">Wage Details</h4>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Travel Allowance</label>
+              <input
+                type="number"
+                step="0.01"
+                value={ratingData.travel_allowance || ''}
+                onChange={(e) => setRatingData(prev => ({...prev, travel_allowance: e.target.value}))}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Over Time</label>
+              <input
+                type="number"
+                step="0.01"
+                value={ratingData.over_time || ''}
+                onChange={(e) => setRatingData(prev => ({...prev, over_time: e.target.value}))}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Long Fare</label>
+              <input
+                type="number"
+                step="0.01"
+                value={ratingData.long_fare || ''}
+                onChange={(e) => setRatingData(prev => ({...prev, long_fare: e.target.value}))}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Bonus</label>
+              <input
+                type="number"
+                step="0.01"
+                value={ratingData.bonus || ''}
+                onChange={(e) => setRatingData(prev => ({...prev, bonus: e.target.value}))}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                placeholder="0.00"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Payment Status</label>
+              <select
+                value={ratingData.payment_status || 'not_paid'}
+                onChange={(e) => setRatingData(prev => ({...prev, payment_status: e.target.value}))}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                <option value="paid">Paid</option>
+                <option value="not_paid">Not Paid</option>
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 space-y-3">
+        <button
+          onClick={() => {
+            if (isEditMode && editingRatingId) {
+              // Update existing rating
+              const updateData = {
+                user: selectedUserForRating.user_id,
+                work: selectedWorkForUsers.id,
+                pant: ratingData.pant,
+                shoe: ratingData.shoe,
+                timing: ratingData.timing,
+                neatness: ratingData.neatness,
+                performance: ratingData.performance,
+                comment: ratingData.comment,
+                arrival_time: ratingData.arrival_time,
+                attendence: ratingData.attendence,
+                travel_allowance: ratingData.travel_allowance ? parseFloat(ratingData.travel_allowance) : 0,
+                over_time: ratingData.over_time ? parseFloat(ratingData.over_time) : 0,
+                long_fare: ratingData.long_fare ? parseFloat(ratingData.long_fare) : 0,
+                bonus: ratingData.bonus ? parseFloat(ratingData.bonus) : 0,
+                payment_status: ratingData.payment_status || 'not_paid'
+              };
+              
+              dispatch(updateBoyRating({ ratingId: editingRatingId, ratingData: updateData }));
+            } else {
+              // Create new rating
+              const submitData = {
+                user: selectedUserForRating.user_id,
+                work: selectedWorkForUsers.id,
+                pant: ratingData.pant,
+                shoe: ratingData.shoe,
+                timing: ratingData.timing,
+                neatness: ratingData.neatness,
+                performance: ratingData.performance,
+                comment: ratingData.comment,
+                arrival_time: ratingData.arrival_time,
+                attendence: ratingData.attendence
+              };
+              console.log(selectedUserForRating)
+              console.log(selectedWorkForUsers)
+              console.log(submitData)
+              dispatch(submitAttendanceRating(submitData));
+
+              // Submit wage data separately
+              const wageData = {
+                user: selectedUserForRating.user_id,
+                work: selectedWorkForUsers.id,
+                travel_allowance: ratingData.travel_allowance ? parseFloat(ratingData.travel_allowance) : 0,
+                over_time: ratingData.over_time ? parseFloat(ratingData.over_time) : 0,
+                long_fare: ratingData.long_fare ? parseFloat(ratingData.long_fare) : 0,
+                bonus: ratingData.bonus ? parseFloat(ratingData.bonus) : 0,
+                payment_status: ratingData.payment_status || 'not_paid'
+              };
+              dispatch(submitBoyWage(wageData));
+            }
+
+            setShowRatingModal(false);
+            setSelectedUserForRating(null);
+            setShowAssignedUsersModal(false);
+            setSelectedWorkForUsers(null);
+            setIsEditMode(false);
+            setEditingRatingId(null);
+          }}
+          disabled={attendanceRating.isLoading || boyWage.isLoading || updateRating.isLoading}
+          className="w-full bg-blue-600 text-white py-4 px-4 rounded-xl font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-base"
+        >
+          {(attendanceRating.isLoading || boyWage.isLoading || updateRating.isLoading) ? (
+            <>
+              <RefreshCw className="h-4 w-4 animate-spin mr-2" />
+              {isEditMode ? 'Updating...' : 'Submitting...'}
+            </>
+          ) : (
+            isEditMode ? 'Update Rating & Wage' : 'Submit Rating & Wage'
+          )}
+        </button>
+        
+        <button
+          onClick={() => {
+            setShowRatingModal(false);
+            setSelectedUserForRating(null);
+            setIsEditMode(false);
+            setEditingRatingId(null);
+          }}
+          className="w-full bg-gray-100 text-gray-700 py-4 px-4 rounded-xl font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 text-base"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+
+
 
       {/* Detail Modal */}
       {showModal && selectedWork && (
@@ -681,305 +1051,6 @@ const CateringWorks = () => {
                 className="w-full bg-gray-100 text-gray-700 py-3 px-4 rounded-lg font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2"
               >
                 Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Attendance Rating Modal */}
-      {showAttendanceModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
-          <div className="bg-white rounded-t-2xl w-full max-h-[90vh] overflow-y-auto animate-slide-up">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">c</h3>
-                <button
-                  onClick={closeAttendanceModal}
-                  className="text-gray-400 hover:text-gray-600 p-2"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-4">
-              {assignedUsers.isLoading ? (
-                <div className="text-center py-8">
-                  <RefreshCw className="h-5 w-5 animate-spin mx-auto text-blue-500" />
-                  <p className="text-sm text-gray-600 mt-2">Loading assigned users...</p>
-                </div>
-              ) : currentAssignedUsers.length === 0 ? (
-                <p className="text-center text-gray-600 py-8">No users assigned to this work.</p>
-              ) : (
-                <div className="space-y-4">
-                  {currentAssignedUsers.filter(user => user.type === 'boy').map((user) => (
-                    <div key={user.id} className="bg-gray-50 rounded-lg p-4">
-                      <div className="flex items-center mb-4">
-                        <div className="flex items-center justify-center w-10 h-10 bg-blue-100 rounded-full mr-3">
-                          <User className="h-5 w-5 text-blue-600" />
-                        </div>
-                        <div>
-                          <h4 className="font-medium text-gray-900">{user.user_name}</h4>
-                          <p className="text-sm text-gray-500">{user.email}</p>
-                        </div>
-                      </div>
-                      
-                      <button
-                        onClick={() => setCurrentRatingUser(user)}
-                        className="w-full bg-blue-50 text-blue-700 border border-blue-200 rounded-lg py-2 px-4 text-sm font-medium hover:bg-blue-100 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
-                      >
-                        Rate this user
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Rating Form Modal */}
-      {currentRatingUser && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
-          <div className="bg-white rounded-t-3xl w-full h-screen overflow-y-auto animate-slide-up">
-            <div className="sticky top-0 bg-white border-b border-gray-200 p-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-semibold text-gray-900">Rate {currentRatingUser.user_name}</h3>
-                <button
-                  onClick={() => setCurrentRatingUser(null)}
-                  className="text-gray-400 hover:text-gray-600 p-2"
-                >
-                  <X className="h-6 w-6" />
-                </button>
-              </div>
-            </div>
-            
-            <div className="p-4 space-y-6 pb-40">
-              {/* Pant Rating */}
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-4">Pant</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => handleRatingChange('pant', true)}
-                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
-                      ratings.pant === true 
-                        ? 'bg-green-50 border-green-200 text-green-700' 
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <CheckCircle className="h-5 w-5 mr-2" />
-                    Good
-                  </button>
-                  <button
-                    onClick={() => handleRatingChange('pant', false)}
-                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
-                      ratings.pant === false 
-                        ? 'bg-red-50 border-red-200 text-red-700' 
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <X className="h-5 w-5 mr-2" />
-                    Poor
-                  </button>
-                </div>
-              </div>
-
-              {/* Shoe Rating */}
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-4">Shoe</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => handleRatingChange('shoe', true)}
-                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
-                      ratings.shoe === true 
-                        ? 'bg-green-50 border-green-200 text-green-700' 
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <CheckCircle className="h-5 w-5 mr-2" />
-                    Good
-                  </button>
-                  <button
-                    onClick={() => handleRatingChange('shoe', false)}
-                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
-                      ratings.shoe === false 
-                        ? 'bg-red-50 border-red-200 text-red-700' 
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <X className="h-5 w-5 mr-2" />
-                    Poor
-                  </button>
-                </div>
-              </div>
-
-              {/* Timing Rating */}
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-4">Timing</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => handleRatingChange('timing', true)}
-                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
-                      ratings.timing === true 
-                        ? 'bg-green-50 border-green-200 text-green-700' 
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <CheckCircle className="h-5 w-5 mr-2" />
-                    Good
-                  </button>
-                  <button
-                    onClick={() => handleRatingChange('timing', false)}
-                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
-                      ratings.timing === false 
-                        ? 'bg-red-50 border-red-200 text-red-700' 
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <X className="h-5 w-5 mr-2" />
-                    Poor
-                  </button>
-                </div>
-              </div>
-
-              {/* Neatness Rating */}
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-4">Neatness</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => handleRatingChange('neatness', true)}
-                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
-                      ratings.neatness === true 
-                        ? 'bg-green-50 border-green-200 text-green-700' 
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <CheckCircle className="h-5 w-5 mr-2" />
-                    Good
-                  </button>
-                  <button
-                    onClick={() => handleRatingChange('neatness', false)}
-                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
-                      ratings.neatness === false 
-                        ? 'bg-red-50 border-red-200 text-red-700' 
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <X className="h-5 w-5 mr-2" />
-                    Poor
-                  </button>
-                </div>
-              </div>
-
-              {/* Performance */}
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-4">Performance</label>
-                <div className="grid grid-cols-2 gap-3">
-                  <button
-                    onClick={() => handleRatingChange('performance', true)}
-                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
-                      ratings.performance === true 
-                        ? 'bg-green-50 border-green-200 text-green-700' 
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <CheckCircle className="h-5 w-5 mr-2" />
-                    Good
-                  </button>
-                  <button
-                    onClick={() => handleRatingChange('performance', false)}
-                    className={`flex items-center justify-center px-4 py-4 rounded-xl border text-base font-medium transition-colors ${
-                      ratings.performance === false 
-                        ? 'bg-red-50 border-red-200 text-red-700' 
-                        : 'bg-gray-50 border-gray-200 text-gray-700 hover:bg-gray-100'
-                    }`}
-                  >
-                    <X className="h-5 w-5 mr-2" />
-                    Poor
-                  </button>
-                </div>
-              </div>
-
-              {/* Travel Allowance */}
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-4">Travel Allowance (₹)</label>
-                <input
-                  type="number"
-                  value={ratings.travel_allowance}
-                  onChange={(e) => handleRatingChange('travel_allowance', e.target.value)}
-                  className="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-                  placeholder="Enter amount"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-
-              {/* Over Time */}
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-4">Over Time (₹)</label>
-                <input
-                  type="number"
-                  value={ratings.over_time}
-                  onChange={(e) => handleRatingChange('over_time', e.target.value)}
-                  className="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-                  placeholder="Enter amount"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-
-              {/* Bonus */}
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-4">Bonus (₹)</label>
-                <input
-                  type="number"
-                  value={ratings.bonus}
-                  onChange={(e) => handleRatingChange('bonus', e.target.value)}
-                  className="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-                  placeholder="Enter amount"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-
-              {/* Long Fare */}
-              <div>
-                <label className="block text-base font-medium text-gray-700 mb-4">Long Fare (₹)</label>
-                <input
-                  type="number"
-                  value={ratings.long_fare}
-                  onChange={(e) => handleRatingChange('long_fare', e.target.value)}
-                  className="w-full px-4 py-4 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent text-base"
-                  placeholder="Enter amount"
-                  min="0"
-                  step="0.01"
-                />
-              </div>
-            </div>
-
-            <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 space-y-3">
-              <button
-                onClick={submitRating}
-                disabled={attendanceRating.isLoading}
-                className="w-full bg-blue-600 text-white py-4 px-4 rounded-xl font-medium hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center text-base"
-              >
-                {attendanceRating.isLoading ? (
-                  <>
-                    <RefreshCw className="h-4 w-4 animate-spin mr-2" />
-                    Submitting...
-                  </>
-                ) : (
-                  'Submit Rating'
-                )}
-              </button>
-              
-              <button
-                onClick={() => setCurrentRatingUser(null)}
-                className="w-full bg-gray-100 text-gray-700 py-4 px-4 rounded-xl font-medium hover:bg-gray-200 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 text-base"
-              >
-                Cancel
               </button>
             </div>
           </div>

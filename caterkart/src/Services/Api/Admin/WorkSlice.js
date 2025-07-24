@@ -6,7 +6,7 @@ const API_BASE_URL = 'https://catershub.pythonanywhere.com';
 // Async thunks for API calls
 export const fetchWorks = createAsyncThunk(
   'work/fetchWorks',
-  async (_, { rejectWithValue, getState, dispatch }) => {
+  async (workType = 'upcoming', { rejectWithValue, getState, dispatch }) => {
     try {
       const { adminAuth } = getState();
       
@@ -15,7 +15,7 @@ export const fetchWorks = createAsyncThunk(
         return rejectWithValue('Not authenticated');
       }
       
-      const response = await fetch(`${API_BASE_URL}/admin_panel/catering-work/create/`, {
+      const response = await fetch(`${API_BASE_URL}/admin_panel/catering-works/?type=${workType}`, {
         method: 'GET',
         headers: {
           'Content-Type': 'application/json',
@@ -34,7 +34,7 @@ export const fetchWorks = createAsyncThunk(
       }
       
       const data = await response.json();
-      return data;
+      return { data, workType };
     } catch (error) {
       return rejectWithValue(error.message);
     }
@@ -203,7 +203,7 @@ export const deleteWork = createAsyncThunk(
         return rejectWithValue('Not authenticated');
       }
       
-      const response = await fetch(`${API_BASE_URL}/admin_panel/catering-work/${id}/delete/`, {
+      const response = await fetch(`${API_BASE_URL}/admin_panel/catering-work/${id}/update/`, {
         method: 'DELETE',
         headers: {
           'Content-Type': 'application/json',
@@ -279,7 +279,7 @@ export const updateWorkRequestStatusAndAssign = createAsyncThunk(
       if (assigned) body.assigned = assigned;
       
       const response = await fetch(`${API_BASE_URL}/admin_panel/work-request/${id}/status-update/`, {
-        method: 'patch',
+        method: 'put',
         headers: {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${adminAuth.tokens.access}`,
@@ -587,9 +587,51 @@ export const getWorkAnalyticsDetails = createAsyncThunk(
 
 
 
+
+export const getWorkPaymentSummary = createAsyncThunk(
+  'workAnalytics/getPaymentSummary',
+  async (workId, { rejectWithValue, getState, dispatch }) => {
+    try {
+      const { adminAuth } = getState();
+      const token = adminAuth.tokens?.access;
+
+      if (!token) {
+        return rejectWithValue('Not authenticated');
+      }
+
+      const response = await fetch(`${API_BASE_URL}/admin_panel/work/${workId}/payment-summary/`, {
+        method: 'GET',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+      });
+
+      if (response.status === 401) {
+        dispatch({ type: 'adminAuth/logoutAdmin' });
+        return rejectWithValue('Session expired. Please login again.');
+      }
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch payment summary');
+      }
+
+      const data = await response.json();
+      return data;
+
+    } catch (err) {
+      return rejectWithValue(err.message);
+    }
+  }
+);
+
+
+
 // Initial state
 const initialState = {
   works: [],
+  pastWorks: [],
+  activeTab: 'upcoming', 
   upcomingWorks: [],
   workRequests: [],
   assignedBoys: {},
@@ -608,7 +650,7 @@ const initialState = {
   showBoyModal: false,
   analyticsList: [],
   analyticsDetails: null,
-
+  paymentSummary: null,
 };
 
 // Create slice
@@ -616,6 +658,9 @@ const workSlice = createSlice({
   name: 'work',
   initialState,
   reducers: {
+    setActiveTab: (state, action) => {
+      state.activeTab = action.payload;
+    },
     clearError: (state) => {
       state.error = null;
     },
@@ -657,9 +702,16 @@ const workSlice = createSlice({
         state.error = null;
       })
       .addCase(fetchWorks.fulfilled, (state, action) => {
-        state.loading = false;
-        state.works = action.payload;
-      })
+              state.loading = false;
+              const { data, workType } = action.payload;
+              
+              if (workType === 'upcoming') {
+                state.upcomingWorks = data;
+              } else {
+                state.pastWorks = data;
+              }
+              state.error = null;
+            })
       .addCase(fetchWorks.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
@@ -854,13 +906,34 @@ const workSlice = createSlice({
       .addCase(getWorkAnalyticsDetails.rejected, (state, action) => {
         state.loading = false;
         state.error = action.payload;
+      })
+      .addCase(getWorkPaymentSummary.pending, (state) => {
+        state.loading = true;
+        state.error = null;
+      })
+      .addCase(getWorkPaymentSummary.fulfilled, (state, action) => {
+        state.loading = false;
+        state.paymentSummary = action.payload;
+      })
+      .addCase(getWorkPaymentSummary.rejected, (state, action) => {
+        state.loading = false;
+        state.error = action.payload;
       });
   },
 });
 
-export const { clearError, clearWorks, clearUpcomingWorks, clearWorkRequests, clearWorkState,setSelectedWork,
-  setShowDetailModal,
+export const { 
+  clearError, 
+  clearWorks, 
+  clearUpcomingWorks, 
+  clearWorkRequests, 
+  clearWorkState,
+  setSelectedWork,
   setShowSupervisorModal,
   setShowBoyModal,
-  clearSelectedWork} = workSlice.actions;
+  setShowDetailModal,
+  clearSelectedWork,
+  setActiveTab 
+} = workSlice.actions;
+
 export default workSlice.reducer;

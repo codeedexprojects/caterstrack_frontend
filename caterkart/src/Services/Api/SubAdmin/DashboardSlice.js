@@ -68,6 +68,33 @@ export const fetchAdminStats = createAsyncThunk(
   }
 );
 
+// Thunk to fetch assigned users for a specific work
+export const getAssignedUsers = createAsyncThunk(
+  'subDashboard/getAssignedUsers',
+  async (workId, { rejectWithValue }) => {
+    const tokens = getSubAdminToken();
+
+    if (!tokens?.access) {
+      return rejectWithValue('Not authenticated');
+    }
+
+    try {
+      const response = await axios.get(`${API_BASE_URL}/admin_panel/assigned-users/${workId}/`, {
+        headers: {
+          Authorization: `Bearer ${tokens.access}`,
+        },
+      });
+
+      return { workId, users: response.data };
+    } catch (error) {
+      if (error.response?.status === 401) {
+        return rejectWithValue('Session expired. Please login again.');
+      }
+      return rejectWithValue(error.response?.data?.message || 'Failed to fetch assigned users');
+    }
+  }
+);
+
 const initialState = {
   upcomingWorks: [],
   adminStats: {
@@ -79,10 +106,21 @@ const initialState = {
   loading: {
     upcomingWorks: false,
     adminStats: false,
+    assignedUsers: false,
   },
   error: {
     upcomingWorks: null,
     adminStats: null,
+    assignedUsers: null,
+  },
+  // Modal state
+  modal: {
+    isOpen: false,
+    selectedWork: null,
+  },
+  // Assigned users data
+  assignedUsers: {
+    data: {},
   },
 };
 
@@ -93,6 +131,21 @@ const subDashboardSlice = createSlice({
     clearErrors: (state) => {
       state.error.upcomingWorks = null;
       state.error.adminStats = null;
+      state.error.assignedUsers = null;
+    },
+    // Modal actions
+    openModal: (state, action) => {
+      state.modal.isOpen = true;
+      state.modal.selectedWork = action.payload;
+    },
+    closeModal: (state) => {
+      state.modal.isOpen = false;
+      state.modal.selectedWork = null;
+    },
+    // Clear assigned users data
+    clearAssignedUsers: (state) => {
+      state.assignedUsers.data = {};
+      state.error.assignedUsers = null;
     },
   },
   extraReducers: (builder) => {
@@ -123,9 +176,23 @@ const subDashboardSlice = createSlice({
       .addCase(fetchAdminStats.rejected, (state, action) => {
         state.loading.adminStats = false;
         state.error.adminStats = action.payload;
+      })
+
+      // Assigned Users
+      .addCase(getAssignedUsers.pending, (state) => {
+        state.loading.assignedUsers = true;
+        state.error.assignedUsers = null;
+      })
+      .addCase(getAssignedUsers.fulfilled, (state, action) => {
+        state.loading.assignedUsers = false;
+        state.assignedUsers.data[action.payload.workId] = action.payload.users;
+      })
+      .addCase(getAssignedUsers.rejected, (state, action) => {
+        state.loading.assignedUsers = false;
+        state.error.assignedUsers = action.payload;
       });
   },
 });
 
-export const { clearErrors } = subDashboardSlice.actions;
+export const { clearErrors, openModal, closeModal, clearAssignedUsers } = subDashboardSlice.actions;
 export default subDashboardSlice.reducer;
