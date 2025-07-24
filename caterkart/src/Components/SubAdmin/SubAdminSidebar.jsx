@@ -1,20 +1,22 @@
 import React from 'react';
-import { Home, Users, DollarSign, Briefcase, X, LogOut } from 'lucide-react';
+import { Home, Users, UserPlus, Briefcase, X, LogOut } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import { useDispatch } from 'react-redux';
+import { logoutSubAdmin } from '../../Services/Api/SubAdmin/SubLoginSlice';
 
-const Sidebar = ({ activeSection, setActiveSection, sidebarOpen, setSidebarOpen }) => {
+const SubAdminSidebar = ({ activeSection, setActiveSection, sidebarOpen, setSidebarOpen }) => {
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const sidebarItems = [
-    { id: 'dashboard', label: 'Dashboard', icon: Home, path: '/admin/dashboard' },
-    { id: 'users', label: 'Users', icon: Users, path: '/admin/users' },
-    { id: 'fares', label: 'Fares', icon: DollarSign, path: '/admin/fares' },
-    { id: 'works', label: 'Works', icon: Briefcase, path: '/admin/works' },
+    { id: 'sub-dashboard', label: 'Dashboard', icon: Home, path: '/subadmin/sub-dashboard' },
+    { id: 'users', label: 'Users', icon: Users, path: '/subadmin/create-user' },
+    { id: 'catering-works', label: 'Catering Works', icon: Briefcase, path: '/subadmin/catering-works' },
   ];
 
   const handleLogout = () => {
-    console.log('Logout clicked');
-    navigate('/admin/login');
+    dispatch(logoutSubAdmin());
+    navigate('/subadmin/login');
   };
 
   return (
@@ -45,7 +47,7 @@ const Sidebar = ({ activeSection, setActiveSection, sidebarOpen, setSidebarOpen 
                 onClick={() => {
                   setActiveSection(item.id);
                   setSidebarOpen(false);
-                  navigate(item.path);  // Navigate to the route
+                  navigate(item.path);
                 }}
                 className={`w-full flex items-center px-4 py-3 mb-2 text-left text-sm font-medium rounded-lg transition-colors ${
                   activeSection === item.id
@@ -82,4 +84,4 @@ const Sidebar = ({ activeSection, setActiveSection, sidebarOpen, setSidebarOpen 
   );
 };
 
-export default Sidebar;
+export default SubAdminSidebar;

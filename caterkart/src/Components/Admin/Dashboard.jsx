@@ -1,21 +1,49 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { fetchUpcomingWorks } from '../../Services/Api/Admin/WorkSlice';
-import { Calendar, Clock, MapPin, Users, CheckCircle, XCircle, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { 
+  fetchUpcomingWorks, 
+  fetchAdminStats, 
+  setSelectedWork, 
+  setShowDetailModal,
+  fetchWorkRequestsByWork,
+  fetchAssignedUsers,
+  fetchWorks  // Add this import
+} from '../../Services/Api/Admin/WorkSlice';
+import { Calendar, Clock, MapPin, Users, CheckCircle, XCircle, AlertCircle, Eye, X } from 'lucide-react';
 
 const Dashboard = () => {
   const dispatch = useDispatch();
-  const { upcomingWorks, loading, error } = useSelector(state => state.work);
+  const navigate = useNavigate();
+  const { upcomingWorks, works, adminStats, loading, error } = useSelector(state => state.work);
   
   useEffect(() => {
     dispatch(fetchUpcomingWorks());
+    dispatch(fetchAdminStats());
+    dispatch(fetchWorks()); // Fetch all works to get complete details
   }, [dispatch]);
 
   const stats = [
-    { title: 'Total Users', value: '1,234', color: 'bg-blue-500' },
-    { title: 'Total Fares', value: '₹45,678', color: 'bg-green-500' },
-    { title: 'Active Users', value: '987', color: 'bg-purple-500' },
-    { title: 'Pending Approvals', value: '23', color: 'bg-orange-500' },
+    { 
+      title: 'Total Users', 
+      value: adminStats?.total_users || 0, 
+      color: 'bg-blue-500' 
+    },
+    { 
+      title: 'Works Completed', 
+      value: adminStats?.total_works_completed || 0, 
+      color: 'bg-green-500' 
+    },
+    { 
+      title: 'Pending Works', 
+      value: adminStats?.total_pending_works || 0, 
+      color: 'bg-purple-500' 
+    },
+    { 
+      title: 'Join Requests', 
+      value: adminStats?.total_pending_join_requests || 0, 
+      color: 'bg-orange-500' 
+    },
   ];
 
   const formatDate = (dateString) => {
@@ -34,42 +62,44 @@ const Dashboard = () => {
     });
   };
 
-  const getStatusConfig = (status) => {
-    switch (status) {
-      case 'pending':
-        return {
-          color: 'bg-gray-100 text-gray-800 border-gray-300',
-          icon: Clock,
-          iconColor: 'text-gray-600'
-        };
-      case 'approved':
-        return {
-          color: 'bg-gray-100 text-gray-800 border-gray-300',
-          icon: CheckCircle,
-          iconColor: 'text-gray-600'
-        };
-      case 'rejected':
-        return {
-          color: 'bg-gray-100 text-gray-800 border-gray-300',
-          icon: XCircle,
-          iconColor: 'text-gray-600'
-        };
+  const getWorkTypeColor = (workType) => {
+    switch (workType?.toLowerCase()) {
+      case 'wedding':
+        return 'bg-pink-100 text-pink-800 border-pink-300';
+      case 'birthday':
+        return 'bg-yellow-100 text-yellow-800 border-yellow-300';
+      case 'corporate':
+        return 'bg-blue-100 text-blue-800 border-blue-300';
+      case 'lunch':
+        return 'bg-green-100 text-green-800 border-green-300';
       default:
-        return {
-          color: 'bg-gray-100 text-gray-800 border-gray-300',
-          icon: AlertCircle,
-          iconColor: 'text-gray-600'
-        };
+        return 'bg-gray-100 text-gray-800 border-gray-300';
     }
   };
 
-  const getWorkTypeColor = (workType) => {
-    switch (workType) {
-      case 'wedding':
-      case 'birthday':
-      case 'corporate':
-      default:
-        return 'bg-gray-100 text-gray-800 border-gray-300';
+  const handleViewDetails = async (upcomingWork) => {
+    try {
+      // Find the complete work details from the works array using the work ID
+      const completeWork = works.find(work => work.id === upcomingWork.id);
+      
+      if (completeWork) {
+        // Use the complete work details
+        dispatch(setSelectedWork(completeWork));
+      } else {
+        // Fallback to upcoming work data if complete work not found
+        dispatch(setSelectedWork(upcomingWork));
+      }
+      
+      dispatch(setShowDetailModal(true));
+      
+      // Navigate to works page
+      navigate('/admin/works');
+      
+      // Fetch related data
+      await dispatch(fetchAssignedUsers(upcomingWork.id));
+      await dispatch(fetchWorkRequestsByWork(upcomingWork.id));
+    } catch (error) {
+      console.error('Failed to load work data:', error);
     }
   };
 
@@ -131,32 +161,30 @@ const Dashboard = () => {
           {!loading && !error && upcomingWorks.length > 0 && (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
               {upcomingWorks.map((work, index) => {
-                const statusConfig = getStatusConfig(work.status);
-                const StatusIcon = statusConfig.icon;
-                
                 return (
-                  <div key={index} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-all duration-200 hover:border-gray-300">
+                  <div key={work.id || index} className="bg-white border border-gray-200 rounded-lg p-5 hover:shadow-md transition-all duration-200 hover:border-gray-300">
                     <div className="flex items-center justify-between mb-3">
-                      <h4 className="text-lg font-semibold text-gray-900 truncate">
+                      <h4 className="text-lg font-bold text-blue-600 truncate">
                         {work.Auditorium_name || 'N/A'}
                       </h4>
-                      {work.status && (
-                        <div className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${statusConfig.color}`}>
-                          <StatusIcon className={`w-3 h-3 mr-1 ${statusConfig.iconColor}`} />
-                          {work.status.charAt(0).toUpperCase() + work.status.slice(1)}
-                        </div>
-                      )}
+                      <button
+                        onClick={() => handleViewDetails(work)}
+                        className="inline-flex items-center px-2 py-1 rounded-md text-xs font-medium bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 transition-colors"
+                      >
+                        <Eye className="w-3 h-3 mr-1" />
+                        View Details
+                      </button>
                     </div>
                     
                     <div className="space-y-2 mb-4">
                       <div className="flex items-center gap-2 text-gray-600">
                         <span className={`inline-flex items-center px-2 py-1 rounded-full text-xs font-medium border ${getWorkTypeColor(work.work_type)}`}>
-                          {work.work_type.charAt(0).toUpperCase() + work.work_type.slice(1)}
+                          {work.work_type?.charAt(0).toUpperCase() + work.work_type?.slice(1)}
                         </span>
                       </div>
                       <div className="flex items-center gap-2 text-gray-600">
                         <MapPin className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm">{work.place}</span>
+                        <span className="text-sm font-semibold text-gray-800">{work.place}</span>
                       </div>
                       <div className="flex items-center gap-2 text-gray-600">
                         <Users className="w-4 h-4 text-gray-500" />
@@ -164,7 +192,7 @@ const Dashboard = () => {
                       </div>
                       <div className="flex items-center gap-2 text-gray-600">
                         <Calendar className="w-4 h-4 text-gray-500" />
-                        <span className="text-sm">{formatDate(work.date)}</span>
+                        <span className="text-sm font-semibold text-green-600">{formatDate(work.date)}</span>
                       </div>
                       <div className="flex items-center gap-2 text-gray-600">
                         <Clock className="w-4 h-4 text-gray-500" />

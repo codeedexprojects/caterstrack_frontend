@@ -17,7 +17,10 @@ import {
   Building,
   ChefHat,
   FileText,
-  Info
+  Info,
+  Phone,        // Add this
+  Bike,         // Add this  
+  CreditCard    // Add this
 } from 'lucide-react';
 
 import { 
@@ -29,56 +32,110 @@ import {
   updateWorkRequestStatusAndAssign,
   assignSupervisors,
   assignBoyToWork,
-  publishWork
+  publishWork,
+  fetchAssignedUsers,
+  setSelectedWork,
+  setShowDetailModal,
+  setShowSupervisorModal,
+  setShowBoyModal,
+  clearSelectedWork
 } from '../../Services/Api/Admin/WorkSlice';
 
-// Toast Component
+import { getUsersList } from '../../Services/Api/Admin/UserSlice';
+
+// Update the Toast component
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
-    }, 4000);
+    }, 5000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
   const getToastStyles = () => {
     switch (type) {
-      case 'success':
-        return 'bg-green-500 text-white';
-      case 'error':
-        return 'bg-red-500 text-white';
-      case 'warning':
-        return 'bg-yellow-500 text-white';
-      default:
-        return 'bg-blue-500 text-white';
+      case 'success': return 'bg-green-500 text-white';
+      case 'error': return 'bg-red-500 text-white';
+      case 'warning': return 'bg-yellow-500 text-white';
+      default: return 'bg-blue-500 text-white';
     }
   };
 
   return (
-    <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${getToastStyles()} animate-slide-in`}>
-      <span>{message}</span>
-      <button onClick={onClose} className="ml-2 hover:bg-white hover:bg-opacity-20 rounded p-1">
+    <div className={`fixed top-4 right-4 z-[100] flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${getToastStyles()} animate-slide-in max-w-sm`}>
+      <span className="text-sm">{message}</span>
+      <button onClick={onClose} className="ml-2 hover:bg-white hover:bg-opacity-20 rounded p-1 flex-shrink-0">
         <X className="h-4 w-4" />
       </button>
     </div>
   );
 };
 
+// Update the ConfirmToast component similarly
+const ConfirmToast = ({ message, onConfirm, onCancel }) => (
+  <div className="fixed top-4 right-4 z-[100] bg-white border border-gray-300 rounded-lg shadow-lg p-4 max-w-sm">
+    <p className="text-gray-800 mb-4">{message}</p>
+    <div className="flex gap-2 justify-end">
+      <button
+        onClick={onCancel}
+        className="px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+      >
+        Cancel
+      </button>
+      <button
+        onClick={onConfirm}
+        className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+      >
+        Delete
+      </button>
+    </div>
+  </div>
+);
+
 const Works = () => {
   const dispatch = useDispatch();
-  const { works, workRequests, loading, error } = useSelector(state => state.work);
+const { 
+  works, 
+  upcomingWorks,
+  pastWorks,
+  workRequests, 
+  assignedUsers, 
+  loading, 
+  error,
+  selectedWork,
+  showDetailModal,
+  showSupervisorModal,
+  showBoyModal,
+  activeTab = 'upcoming' // Add default value
+} = useSelector(state => state.work);
+
   const { users } = useSelector(state => state.users);
   
   const [showModal, setShowModal] = useState(false);
   const [isEditing, setIsEditing] = useState(false);
   const [currentWork, setCurrentWork] = useState(null);
-  const [showDetailModal, setShowDetailModal] = useState(false);
-  const [selectedWork, setSelectedWork] = useState(null);
   const [publishingWorkId, setPublishingWorkId] = useState(null);
   const [toast, setToast] = useState(null);
-  const [showSupervisorModal, setShowSupervisorModal] = useState(false);
   const [selectedSupervisors, setSelectedSupervisors] = useState([]);
   const [availableSupervisors, setAvailableSupervisors] = useState([]);
+  const [selectedBoys, setSelectedBoys] = useState([]);
+  const [availableBoys, setAvailableBoys] = useState([]);
+  const [assignedUserIds, setAssignedUserIds] = useState(new Set());
+  const [selectedByRole, setSelectedByRole] = useState({
+    subadmin: [],
+    supervisor: [],
+    head_boy: [],
+    boys: []
+  });
+
+  const titleMap = {
+    subadmin: "Sub Admins",
+    supervisor: "Supervisors",
+    head_boy: "Head Boys",
+    boy: "Boys",
+  };
+
+
   
   
   const [formData, setFormData] = useState({
@@ -102,15 +159,56 @@ const Works = () => {
     about_work: ''
   });
 
+useEffect(() => {
+  dispatch(fetchWorks('upcoming'));
+  dispatch(fetchWorks('past'));
+  dispatch(getUsersList());
+}, [dispatch]);
+
   useEffect(() => {
-    dispatch(fetchWorks());
-  }, [dispatch]);
+    setAvailableBoys(users);
+  }, [users]);
 
 
   useEffect(() => {
     const supervisors = users.filter(user => user.role === 'supervisor');
     setAvailableSupervisors(supervisors);
   }, [users]);
+
+  useEffect(() => {
+  if (assignedUsers.users) {
+    const ids = new Set(assignedUsers.users.map(user => user.user_id));
+    setAssignedUserIds(ids);
+  }
+}, [assignedUsers.users]);
+
+  useEffect(() => {
+  if (users.length > 0 && assignedUsers.users) {
+    // Filter out already assigned supervisors
+    const assignedSupervisorIds = assignedUsers.users
+      .filter(user => user.role === 'supervisor')
+      .map(user => user.id);
+    
+    const unassignedSupervisors = users.filter(user => 
+      user.role === 'supervisor' && !assignedSupervisorIds.includes(user.id)
+    );
+    setAvailableSupervisors(unassignedSupervisors);
+    
+    // Filter out already assigned boys
+    const assignedBoyIds = assignedUsers.users
+      .filter(user => user.role === 'boys')
+      .map(user => user.id);
+    
+    const unassignedBoys = users.filter(user => 
+      !assignedBoyIds.includes(user.id)
+    );
+    setAvailableBoys(unassignedBoys);
+  } else {
+    // If no assigned users data, show all users
+    setAvailableSupervisors(users.filter(user => user.role === 'supervisor'));
+    setAvailableBoys(users.filter(user => user.role === 'boys'));
+  }
+}, [users, assignedUsers.users]);
 
   // Toast functions
   const showToast = (message, type = 'info') => {
@@ -129,34 +227,66 @@ const Works = () => {
     }));
   };
 
+const handleTabChange = (tab) => {
+  dispatch({ type: 'work/setActiveTab', payload: tab });
+};
+
+    const getCurrentWorks = () => {
+    return activeTab === 'upcoming' ? upcomingWorks : pastWorks;
+  };
+
 const handleWorkClick = async (work) => {
-  setSelectedWork(work);
-  setShowDetailModal(true);
+  dispatch(setSelectedWork(work));
+  dispatch(setShowDetailModal(true));
+  
   try {
+    // Load assigned users first
+    await dispatch(fetchAssignedUsers(work.id));
+    
+    // Then load work requests
     await dispatch(fetchWorkRequestsByWork(work.id));
+    
   } catch (error) {
-    showToast('Failed to load work requests', 'error');
+    console.error('Failed to load work data:', error);
+    showToast('Failed to load work data', 'error');
   }
 };
 
-  const handleAssignSupervisors = async () => {
-    if (!selectedWork || selectedSupervisors.length === 0) {
-      showToast('Please select at least one supervisor', 'error');
-      return;
-    }
 
-    try {
-      await dispatch(assignSupervisors({
-        work: selectedWork.id,
-        assignments: selectedSupervisors.map(id => ({ supervisor_id: id }))
-      })).unwrap();
-      showToast('Supervisors assigned successfully!', 'success');
-      setShowSupervisorModal(false);
-      setSelectedSupervisors([]);
-    } catch (error) {
-      showToast(error.message || 'Failed to assign supervisors', 'error');
-    }
+const handleAssignByRole = async (roleType) => {
+  // Filter out already assigned users from the selection
+  const usersToAssign = selectedByRole[roleType].filter(id => !assignedUserIds.has(id));
+  console.log(assignedUserIds)
+  if (usersToAssign.length === 0) {
+    showToast(`All selected ${roleType} are already assigned`, 'warning');
+    return;
+  }
+
+  const payload = {
+    work_id: selectedWork.id,
+    role_type: roleType,
+    user_ids: usersToAssign,
   };
+
+  try {
+    await dispatch(assignBoyToWork(payload)).unwrap();
+    showToast(`${usersToAssign.length} ${roleType} assigned successfully!`, 'success');
+    
+    // Update local state with newly assigned users
+    const newAssignedIds = new Set(assignedUserIds);
+    usersToAssign.forEach(id => newAssignedIds.add(id));
+    setAssignedUserIds(newAssignedIds);
+    
+    // Clear selection for this role
+    setSelectedByRole(prev => ({ ...prev, [roleType]: [] }));
+    
+    // Refresh data
+    await dispatch(fetchAssignedUsers(selectedWork.id));
+  } catch (error) {
+    console.error('Assignment error:', error);
+    showToast(error.message || 'Failed to assign', 'error');
+  }
+};
 
   // Handle boy assignment (reject or assign)
   const handleBoyAction = async (requestId, action) => {
@@ -264,7 +394,8 @@ const handleWorkClick = async (work) => {
       await dispatch(publishWork({ id: work.id, is_published: newStatus })).unwrap();
 
       // ✅ Refresh the list so UI shows updated status
-      await dispatch(fetchWorks());
+      await dispatch(fetchWorks('upcoming'));
+      await dispatch(fetchWorks('past'));
 
       const message = newStatus 
         ? 'Work published successfully! It\'s now visible to workers.' 
@@ -302,6 +433,24 @@ const handleWorkClick = async (work) => {
       remarks: '',
       about_work: ''
     });
+  };
+
+  const handleCloseDetailModal = () => {
+    dispatch(clearSelectedWork());
+  };
+
+  const handleCloseSupervisorModal = () => {
+    dispatch(setShowSupervisorModal(false));
+    setSelectedSupervisors([]);
+  };
+
+  const handleOpenBoyModal = () => {
+    dispatch(setShowBoyModal(true));
+  };
+
+  const handleCloseBoyModal = () => {
+    dispatch(setShowBoyModal(false));
+    setSelectedBoys([]);
   };
 
 
@@ -389,41 +538,91 @@ const handleWorkClick = async (work) => {
   </div>
 )}
 
-{/* Works Grid - Remove tabs, show only works */}
-<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-  {works.map((work) => (
-    <div key={work.id} className="bg-white rounded-lg shadow-md p-6 border border-gray-200">
-      <div className="flex justify-between items-start mb-4">
-        <div className="flex-1">
-          {/* Auditorium name as main heading */}
-          <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
-            <Building className="h-5 w-5 text-blue-600" />
-            {work.Auditorium_name || 'Auditorium Not Specified'}
-          </h3>
-          {/* Catering company as sub-heading */}
-          {work.Catering_company && (
-            <p className="text-md text-gray-700 mb-2 flex items-center gap-2 font-medium">
-              <ChefHat className="h-4 w-4 text-orange-600" />
-              {work.Catering_company}
-            </p>
-          )}
-          <p className="text-sm text-gray-500">Customer: {work.customer_name}</p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={() => handleEdit(work)}
-            className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
-          >
-            <Edit2 className="h-4 w-4" />
-          </button>
-          <button
-            onClick={() => handleDelete(work.id)}
-            className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
+<div className="mb-6">
+        <div className="border-b border-gray-200">
+          <nav className="-mb-px flex space-x-8">
+            <button
+              onClick={() => handleTabChange('upcoming')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'upcoming'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Upcoming Works
+              {upcomingWorks.length > 0 && (
+                <span className="ml-2 bg-blue-100 text-blue-600 py-0.5 px-2 rounded-full text-xs">
+                  {upcomingWorks.length}
+                </span>
+              )}
+            </button>
+            <button
+              onClick={() => handleTabChange('past')}
+              className={`py-2 px-1 border-b-2 font-medium text-sm ${
+                activeTab === 'past'
+                  ? 'border-blue-500 text-blue-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+              }`}
+            >
+              Past Works
+              {pastWorks.length > 0 && (
+                <span className="ml-2 bg-gray-100 text-gray-600 py-0.5 px-2 rounded-full text-xs">
+                  {pastWorks.length}
+                </span>
+              )}
+            </button>
+          </nav>
         </div>
       </div>
+
+{/* Works Grid - Remove tabs, show only works */}
+<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {getCurrentWorks().map((work) => (
+          <div key={work.id} className={`bg-white rounded-lg shadow-md p-6 border ${
+            activeTab === 'past' ? 'border-gray-300 opacity-75' : 'border-gray-200'
+          }`}>
+            <div className="flex justify-between items-start mb-4">
+              <div className="flex-1">
+                {/* Auditorium name as main heading */}
+                <h3 className="text-lg font-semibold text-gray-900 mb-1 flex items-center gap-2">
+                  <Building className="h-5 w-5 text-blue-600" />
+                  {work.Auditorium_name || 'Auditorium Not Specified'}
+                </h3>
+                {/* Add status indicator for past works */}
+                {activeTab === 'past' && (
+                  <span className="inline-block bg-gray-100 text-gray-600 text-xs px-2 py-1 rounded mb-2">
+                    Completed
+                  </span>
+                )}
+                {/* Catering company as sub-heading */}
+                {work.Catering_company && (
+                  <p className="text-md text-gray-700 mb-2 flex items-center gap-2 font-medium">
+                    <ChefHat className="h-4 w-4 text-orange-600" />
+                    {work.Catering_company}
+                  </p>
+                )}
+                <p className="text-sm text-gray-500">Customer: {work.customer_name}</p>
+              </div>
+              <div className="flex items-center gap-2">
+                {/* Only show edit/delete for upcoming works */}
+                {activeTab === 'upcoming' && (
+                  <>
+                    <button
+                      onClick={() => handleEdit(work)}
+                      className="text-blue-600 hover:text-blue-800 p-1 rounded hover:bg-blue-50"
+                    >
+                      <Edit2 className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => handleDelete(work.id)}
+                      className="text-red-600 hover:text-red-800 p-1 rounded hover:bg-red-50"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
+              </div>
+            </div>
       
       {/* About Work Section */}
       {work.about_work && (
@@ -500,38 +699,57 @@ const handleWorkClick = async (work) => {
         {/* Action Buttons */}
         <div className="space-y-2">
           {/* View Details Button */}
-          <button
-            onClick={() => handleWorkClick(work)}
-            className="w-full py-2 px-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium text-sm flex items-center justify-center gap-2"
-          >
-            <Users className="h-4 w-4" />
-            View Details & Manage
-          </button>
+                  <button
+                  onClick={() => handleWorkClick(work)}
+                  className="w-full py-2 px-4 bg-gray-600 text-white rounded-lg hover:bg-gray-700 font-medium text-sm flex items-center justify-center gap-2"
+                >
+                  <Users className="h-4 w-4" />
+                  View Details {activeTab === 'past' ? '& History' : '& Manage'}
+                </button> 
           
           {/* Publish Button */}
-          <button
-            onClick={() => handlePublishToggle(work)}
-            disabled={publishingWorkId === work.id}
-            className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
-              work.is_published 
-                ? 'bg-red-600 text-white hover:bg-red-700' 
-                : 'bg-green-600 text-white hover:bg-green-700'
-            }`}
-          >
-            {publishingWorkId === work.id ? (
-              <>
-                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
-                Processing...
-              </>
-            ) : (
-              work.is_published ? 'Unpublish' : 'Publish'
-            )}
-          </button>
+                {activeTab === 'upcoming' && (
+                  <button
+                    onClick={() => handlePublishToggle(work)}
+                    disabled={publishingWorkId === work.id}
+                    className={`w-full py-2 px-4 rounded-lg font-medium text-sm transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${
+                      work.is_published 
+                        ? 'bg-red-600 text-white hover:bg-red-700' 
+                        : 'bg-green-600 text-white hover:bg-green-700'
+                    }`}
+                  >
+                    {publishingWorkId === work.id ? (
+                      <>
+                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                        Processing...
+                      </>
+                    ) : (
+                      work.is_published ? 'Unpublish' : 'Publish'
+                    )}
+                  </button>
+                )}
         </div>
       </div>
     </div>
   ))}
 </div>
+
+{getCurrentWorks().length === 0 && (
+        <div className="text-center py-12">
+          <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
+            <Building className="h-12 w-12" />
+          </div>
+          <h3 className="text-lg font-medium text-gray-900 mb-2">
+            No {activeTab} works found
+          </h3>
+          <p className="text-sm text-gray-500">
+            {activeTab === 'upcoming' 
+              ? "Click 'Add Work' to create your first work."
+              : "No completed works to display yet."
+            }
+          </p>
+        </div>
+      )}
 
       {/* Enhanced Modal */}
       {showModal && (
@@ -855,7 +1073,7 @@ const handleWorkClick = async (work) => {
 {/* Work Details Modal */}
 {showDetailModal && selectedWork && (
   <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div className="bg-white rounded-lg p-6 w-full max-w-6xl max-h-[90vh] overflow-y-auto">
+    <div className="bg-white rounded-lg p-6 w-full max-w-7xl max-h-[90vh] overflow-y-auto">
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-2xl font-bold text-gray-900 flex items-center gap-2">
@@ -870,7 +1088,7 @@ const handleWorkClick = async (work) => {
           )}
         </div>
         <button
-          onClick={() => setShowDetailModal(false)}
+          onClick={handleCloseDetailModal}
           className="text-gray-500 hover:text-gray-700"
         >
           <X className="h-6 w-6" />
@@ -911,31 +1129,110 @@ const handleWorkClick = async (work) => {
         </div>
       </div>
 
-      {/* Supervisor Assignment */}
+      {/* Assigned Users Table */}
       <div className="mb-6">
         <div className="flex justify-between items-center mb-4">
-          <h3 className="text-lg font-semibold text-gray-900">Supervisor Assignment</h3>
-          <button
-            onClick={() => setShowSupervisorModal(true)}
-            className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2"
-          >
-            <Plus className="h-4 w-4" />
-            Assign Supervisors
-          </button>
+          <h3 className="text-lg font-semibold text-gray-900">Assigned Users</h3>
+          <div className="flex gap-2">
+            <button
+              onClick={handleOpenBoyModal}
+              className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
+            >
+              <Plus className="h-4 w-4" />
+              Assign Users
+            </button>
+          </div>
         </div>
-        
-        {/* Show assigned supervisors here if you have that data */}
-        <div className="bg-blue-50 p-4 rounded-lg">
-          <p className="text-sm text-blue-800">
-            Boys needed: <strong>{selectedWork.no_of_boys_needed}</strong>
-          </p>
-        </div>
+
+        {assignedUsers.users && assignedUsers.users.length > 0 ? (
+          <div className="bg-white rounded-lg shadow-md overflow-hidden">
+            <div className="overflow-x-auto">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Name
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Mobile
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Place
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Role
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Assigned Date
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {assignedUsers.users.map((user) => (
+                    <tr key={user.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-gray-900">
+                          {user.user_name}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {user.mobile}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {user.place}
+                        </div>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${
+                          user.role === 'supervisor' || user.type === 'supervisor'
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {user.role === 'supervisor' || user.type === 'supervisor' ? 'Supervisor' : 'Boy'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <div className="text-sm text-gray-900">
+                          {new Date(user.assigned_at).toLocaleDateString('en-GB', {
+                            day: '2-digit',
+                            month: '2-digit',
+                            year: 'numeric'
+                          })}
+                        </div>
+                        <div className="text-xs text-gray-500">
+                          {new Date(user.assigned_at).toLocaleTimeString('en-GB', {
+                            hour: '2-digit',
+                            minute: '2-digit'
+                          })}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        ) : (
+          <div className="bg-gray-50 p-8 rounded-lg text-center">
+            <Users className="mx-auto h-12 w-12 text-gray-400 mb-3" />
+            <h4 className="text-lg font-medium text-gray-900 mb-2">No Users Assigned</h4>
+            <p className="text-sm text-gray-500">
+              Click the buttons above to assign Users to this work.
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Work Requests Table */}
+      {/* Work Requests Table - Only show pending requests */}
       <div className="bg-white rounded-lg shadow-md">
         <div className="px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Work Requests</h3>
+          <h3 className="text-lg font-semibold text-gray-900">Pending Work Requests</h3>
+          <p className="text-sm text-gray-500 mt-1">
+            Review and manage pending requests from boys
+          </p>
         </div>
         
         <div className="overflow-x-auto">
@@ -949,7 +1246,7 @@ const handleWorkClick = async (work) => {
                   Experience & Skills
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                  Status
+                  Request Date
                 </th>
                 <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                   Actions
@@ -957,78 +1254,81 @@ const handleWorkClick = async (work) => {
               </tr>
             </thead>
             <tbody className="bg-white divide-y divide-gray-200">
-              {workRequests.map((request) => (
-                <tr key={request.id}>
-                  <td className="px-6 py-4 whitespace-nowrap">
+              {workRequests
+                .filter(request => request.status === 'pending') // Filter only pending requests
+                .map((request) => (
+                <tr key={request.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-4">
                     <div>
                       <div className="text-sm font-medium text-gray-900">
                         {request.boy?.user_name || 'N/A'}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-500 flex items-center gap-1">
+                        <Phone className="h-3 w-3" />
                         {request.boy?.mobile_number || 'N/A'}
                       </div>
-                      <div className="text-sm text-gray-500">
+                      <div className="text-sm text-gray-500 flex items-center gap-1">
+                        <MapPin className="h-3 w-3" />
                         {request.boy?.place}, {request.boy?.district}
-                      </div>
-                      <div className="text-xs text-gray-400 mt-1">
-                        Requested: {new Date(request.requested_at).toLocaleDateString()}
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap">
+                  <td className="px-6 py-4">
                     <div className="flex flex-wrap gap-1">
                       {request.boy?.experienced && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
+                          <CheckCircle className="h-3 w-3 mr-1" />
                           Experienced
                         </span>
                       )}
                       {request.boy?.has_bike && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                          <Bike className="h-3 w-3 mr-1" />
                           Has Bike
                         </span>
                       )}
                       {request.boy?.has_license && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-purple-100 text-purple-800">
+                          <CreditCard className="h-3 w-3 mr-1" />
                           Licensed
                         </span>
+                      )}
+                      {!request.boy?.experienced && !request.boy?.has_bike && !request.boy?.has_license && (
+                        <span className="text-xs text-gray-500">No special skills listed</span>
                       )}
                     </div>
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap">
-                    <div className="space-y-1">
-                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${getStatusColor(request.status)}`}>
-                        {getStatusIcon(request.status)}
-                        {request.status}
-                      </span>
-                      {request.assigned === 1 && (
-                        <div>
-                          <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-indigo-100 text-indigo-800">
-                            Assigned
-                          </span>
-                        </div>
-                      )}
+                    <div className="text-sm text-gray-900">
+                      {new Date(request.requested_at).toLocaleDateString('en-GB')}
+                    </div>
+                    <div className="text-xs text-gray-500">
+                      {new Date(request.requested_at).toLocaleTimeString('en-GB', {
+                        hour: '2-digit',
+                        minute: '2-digit'
+                      })}
                     </div>
                   </td>
-                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
-                    {request.status === 'pending' && (
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => handleBoyAction(request.id, 'assign')}
-                          className="text-green-600 hover:text-green-900 px-3 py-1 rounded hover:bg-green-50 text-sm border border-green-200"
-                        >
-                          Assign
-                        </button>
-                        <button
-                          onClick={() => handleBoyAction(request.id, 'reject')}
-                          className="text-red-600 hover:text-red-900 px-3 py-1 rounded hover:bg-red-50 text-sm border border-red-200"
-                        >
-                          Reject
-                        </button>
-                      </div>
-                    )}
+                  <td className="px-6 py-4 whitespace-nowrap">
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleBoyAction(request.id, 'assign')}
+                        className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-green-700 bg-green-100 hover:bg-green-200 border border-green-200 transition-colors"
+                      >
+                        <CheckCircle className="h-4 w-4 mr-1" />
+                        Accept
+                      </button>
+                      <button
+                        onClick={() => handleBoyAction(request.id, 'reject')}
+                        className="inline-flex items-center px-3 py-1 rounded-md text-sm font-medium text-red-700 bg-red-100 hover:bg-red-200 border border-red-200 transition-colors"
+                      >
+                        <X className="h-4 w-4 mr-1" />
+                        Reject
+                      </button>
+                    </div>
                     {request.comment && (
-                      <div className="mt-2 text-xs text-gray-500">
-                        Comment: {request.comment}
+                      <div className="mt-2 p-2 bg-gray-50 rounded text-xs text-gray-600">
+                        <strong>Comment:</strong> {request.comment}
                       </div>
                     )}
                   </td>
@@ -1038,70 +1338,202 @@ const handleWorkClick = async (work) => {
           </table>
         </div>
         
-        {/* Empty state */}
-        {workRequests.length === 0 && (
+        {/* Empty state for pending requests */}
+        {workRequests.filter(request => request.status === 'pending').length === 0 && (
           <div className="text-center py-12">
-            <Users className="mx-auto h-12 w-12 text-gray-400" />
-            <h3 className="mt-2 text-sm font-medium text-gray-900">No work requests</h3>
-            <p className="mt-1 text-sm text-gray-500">
-              No boys have requested this work yet.
+            <div className="mx-auto h-12 w-12 text-gray-400 mb-4">
+              <svg fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+              </svg>
+            </div>
+            <h4 className="text-lg font-medium text-gray-900 mb-2">No Pending Requests</h4>
+            <p className="text-sm text-gray-500">
+              All work requests have been processed or no boys have requested this work yet.
             </p>
           </div>
         )}
+      </div>
+
+      {/* Summary Stats */}
+      <div className="mt-6 grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-blue-50 p-4 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-blue-600">Total Assigned</p>
+              <p className="text-2xl font-bold text-blue-900">
+                {assignedUsers.users ? assignedUsers.users.length : 0}
+              </p>
+            </div>
+            <Users className="h-8 w-8 text-blue-600" />
+          </div>
+        </div>
+        
+        <div className="bg-yellow-50 p-4 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-yellow-600">Pending Requests</p>
+              <p className="text-2xl font-bold text-yellow-900">
+                {workRequests.filter(r => r.status === 'pending').length}
+              </p>
+            </div>
+            <Clock className="h-8 w-8 text-yellow-600" />
+          </div>
+        </div>
+        
+        <div className="bg-green-50 p-4 rounded-lg">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-green-600">Total Requests</p>
+              <p className="text-2xl font-bold text-green-900">
+                {workRequests.length}
+              </p>
+            </div>
+            <CheckCircle className="h-8 w-8 text-green-600" />
+          </div>
+        </div>
       </div>
     </div>
   </div>
 )}
 
-{/* Supervisor Assignment Modal */}
-{showSupervisorModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-60">
-    <div className="bg-white rounded-lg p-6 w-full max-w-md">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Assign Supervisors</h3>
-        <button
-          onClick={() => setShowSupervisorModal(false)}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-      
-      <div className="space-y-3 mb-4">
-        {/* You'll need to populate availableSupervisors from your API */}
-        {availableSupervisors.map((supervisor) => (
-          <label key={supervisor.id} className="flex items-center">
-            <input
-              type="checkbox"
-              checked={selectedSupervisors.includes(supervisor.id)}
-              onChange={(e) => {
-                if (e.target.checked) {
-                  setSelectedSupervisors([...selectedSupervisors, supervisor.id]);
-                } else {
-                  setSelectedSupervisors(selectedSupervisors.filter(id => id !== supervisor.id));
-                }
-              }}
-              className="mr-2"
-            />
-            <span className="text-sm text-gray-700">{supervisor.user_name}</span>
-          </label>
-        ))}
-      </div>
-      
-      <div className="flex justify-end gap-2">
-        <button
-          onClick={() => setShowSupervisorModal(false)}
-          className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleAssignSupervisors}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700"
-        >
-          Assign
-        </button>
-      </div>
+{showBoyModal && (
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+    <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+
+      {/* ✅ Define once, outside the .map */}
+      {(() => {
+        const assignedUserIds = new Set(
+          assignedUsers?.users?.map((user) => user.id)
+        );
+
+        const titleMap = {
+          subadmin: "Sub Admins",
+          supervisor: "Supervisors",
+          head_boy: "Head Boys",
+          boys: "Boys",
+        };
+
+        return (
+          <>
+            <div className="flex justify-between items-center mb-4">
+              <h3 className="text-xl font-semibold text-gray-900">Assign Users</h3>
+              <button
+                onClick={handleCloseBoyModal}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+
+            {["subadmin", "supervisor", "head_boy", "boys"].map((roleKey) => {
+            const boysByRole = availableBoys.filter((boy) => boy.role === roleKey);
+            if (boysByRole.length === 0) return null;
+
+            return (
+              <div key={roleKey} className="mb-6">
+                <h4 className="text-md font-semibold text-gray-700 border-b pb-1 mb-2">
+                  {titleMap[roleKey]}
+                </h4>
+
+                <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                {boysByRole.map((boy) => {
+                  const isAssigned = assignedUserIds.has(boy.id);
+                  const isSelected = selectedByRole[roleKey]?.includes(boy.id);
+                  
+                  return (
+                    <div
+                      key={boy.id}
+                      className={`flex items-start gap-3 p-2 rounded ${
+                        isAssigned ? 'bg-gray-50 cursor-not-allowed' : 'hover:bg-gray-50 cursor-pointer'
+                      }`}
+                      onClick={() => {
+                        if (!isAssigned) {
+                          setSelectedByRole(prev => {
+                            const newSelection = isSelected
+                              ? prev[roleKey].filter(id => id !== boy.id)
+                              : [...prev[roleKey], boy.id];
+                            return { ...prev, [roleKey]: newSelection };
+                          });
+                        }
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        disabled={isAssigned}
+                        checked={isSelected}
+                        readOnly
+                        className={`mt-1 ${isAssigned ? 'opacity-50' : ''}`}
+                      />
+
+                      <div className="flex-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                          <span className={`text-sm font-semibold ${
+                            isAssigned ? 'text-gray-500' : 'text-gray-800'
+                          }`}>
+                            {boy.user_name}
+                          </span>
+                          <span className="text-xs text-gray-500 capitalize">{boy.role}</span>
+                        </div>
+
+                        <div className="text-xs text-gray-700 mt-1 space-y-1">
+                          {boy.mobile_number && (
+                            <div className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              <span>{boy.mobile_number}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              {boy.place || 'Place not added'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 mt-2 flex-wrap">
+                          {boy.has_bike && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              <Bike className="h-3 w-3 mr-1" />
+                              Has Bike
+                            </span>
+                          )}
+                          {isAssigned && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-600">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Already Assigned
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+                <div className="flex justify-end mt-2">
+                  <button
+                    onClick={() => handleAssignByRole(roleKey)}
+                    disabled={selectedByRole[roleKey]?.length === 0}
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Assign {titleMap[roleKey]} ({selectedByRole[roleKey]?.length || 0})
+                  </button>
+                </div>
+              </div>
+            );
+          })}
+
+            <div className="flex justify-end border-t pt-4 mt-4">
+              <button
+                onClick={handleCloseBoyModal}
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        );
+      })()}
     </div>
   </div>
 )}
