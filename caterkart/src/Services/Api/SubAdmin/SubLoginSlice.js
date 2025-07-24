@@ -128,21 +128,24 @@ export const editUser = createAsyncThunk(
 
 export const getCateringWorkList = createAsyncThunk(
   'subAdminAuth/getCateringWorkList',
-  async (_, { getState, rejectWithValue }) => {
+  async (type = 'upcoming', { getState, rejectWithValue }) => {
     try {
       const { subAdminAuth } = getState();
-      const response = await axios.get(`${API_BASE_URL}/sub_admin/catering-work/list-sub-admin/`, {
+      const response = await axios.get(`${API_BASE_URL}/admin_panel/catering-works/?type=${type}`, {
         headers: {
           'Authorization': `Bearer ${subAdminAuth.tokens?.access}`,
         },
       });
       
-      return response.data;
+      return { type, data: response.data };
     } catch (error) {
       if (error.response?.status === 401) {
-        return rejectWithValue('Session expired. Please login again.');
+        return rejectWithValue({ type, error: 'Session expired. Please login again.' });
       }
-      return rejectWithValue(error.response?.data?.message || 'Failed to fetch catering work list');
+      return rejectWithValue({ 
+        type, 
+        error: error.response?.data?.message || 'Failed to fetch catering work list' 
+      });
     }
   }
 );
@@ -322,6 +325,18 @@ updateRating: {
   error: null,
   success: false,
 },
+cateringWorkList: {
+    upcoming: {
+      data: [],
+      isLoading: false,
+      error: null
+    },
+    past: {
+      data: [],
+      isLoading: false,
+      error: null
+    }
+  }
 };
 
 const subAdminAuthSlice = createSlice({
@@ -519,24 +534,25 @@ clearUpdateRatingState: (state) => {
           localStorage.removeItem('subAdminUser');
         }
       })
-      // Get Catering Work List
-      .addCase(getCateringWorkList.pending, (state) => {
-        state.cateringWorkList.isLoading = true;
-        state.cateringWorkList.error = null;
+      .addCase(getCateringWorkList.pending, (state, action) => {
+        const type = action.meta.arg || 'upcoming';
+        state.cateringWorkList[type].isLoading = true;
+        state.cateringWorkList[type].error = null;
       })
       .addCase(getCateringWorkList.fulfilled, (state, action) => {
-        state.cateringWorkList.isLoading = false;
-        state.cateringWorkList.data = action.payload;
+        const { type, data } = action.payload;
+        state.cateringWorkList[type].isLoading = false;
+        state.cateringWorkList[type].data = data;
       })
       .addCase(getCateringWorkList.rejected, (state, action) => {
-        state.cateringWorkList.isLoading = false;
-        state.cateringWorkList.error = action.payload;
-        if (action.payload === 'Session expired. Please login again.') {
-          state.admin = null;
-          state.tokens = null;
-          state.isLoggedIn = false;
-          localStorage.removeItem('subAdminToken');
-          localStorage.removeItem('subAdminUser');
+        const { type, error } = action.payload || {};
+        const workType = type || action.meta.arg || 'upcoming';
+        
+        state.cateringWorkList[workType].isLoading = false;
+        state.cateringWorkList[workType].error = error || action.error.message;
+        
+        if (error === 'Session expired. Please login again.') {
+          // Handle session expiration
         }
       })
       // Get Assigned Users

@@ -28,33 +28,26 @@ import {
   Briefcase,
   Bike,
   CreditCard,
-  ChevronRight,
-  Menu
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 const UserManagement = () => {
   const dispatch = useDispatch();
   const { usersList, userCreation, userEdit } = useSelector((state) => state.subAdminAuth);
 
-  const [showCreateModal, setShowCreateModal] = useState(false);
+  const [showModal, setShowModal] = useState(false);
   const [showDetailsModal, setShowDetailsModal] = useState(false);
-  const [showEditModal, setShowEditModal] = useState(false);
+  const [isEditMode, setIsEditMode] = useState(false);
   const [selectedUser, setSelectedUser] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [showFilters, setShowFilters] = useState(false);
+  const [showAdvancedFields, setShowAdvancedFields] = useState(false);
 
-  const [createFormData, setCreateFormData] = useState({
+  const [formData, setFormData] = useState({
     email: '',
     role: 'boys',
-    password: '',
-    mobile_number: '',
-    user_name: ''
-  });
-
-  const [editFormData, setEditFormData] = useState({
-    email: '',
-    role: '',
     password: '',
     mobile_number: '',
     user_name: '',
@@ -70,8 +63,7 @@ const UserManagement = () => {
     is_approved: false
   });
 
-  const [createErrors, setCreateErrors] = useState({});
-  const [editErrors, setEditErrors] = useState({});
+  const [errors, setErrors] = useState({});
 
   const roleOptions = [
     { value: 'boys', label: 'Boys' },
@@ -80,218 +72,29 @@ const UserManagement = () => {
     { value: 'admin', label: 'Admin' }
   ];
 
+  const employmentOptions = [
+    { value: '', label: 'Select employment type' },
+    { value: 'full-time', label: 'Full Time' },
+    { value: 'part-time', label: 'Part Time' }
+  ];
+
   useEffect(() => {
     dispatch(getUsersList());
   }, [dispatch]);
 
   useEffect(() => {
-    if (userCreation.success) {
-      setShowCreateModal(false);
-      setCreateFormData({
-        email: '',
-        role: 'boys',
-        password: '',
-        mobile_number: '',
-        user_name: ''
-      });
-      setCreateErrors({});
-      dispatch(clearUserCreationState());
-    }
-  }, [userCreation.success, dispatch]);
-
-  useEffect(() => {
-    if (userEdit.success) {
-      setShowEditModal(false);
-      setEditFormData({
-        email: '',
-        role: '',
-        password: '',
-        mobile_number: '',
-        user_name: ''
-      });
-      setEditErrors({});
-      setSelectedUser(null);
-      dispatch(clearUserEditState());
-    }
-  }, [userEdit.success, dispatch]);
-
-  const handleCreateInputChange = (e) => {
-    const { name, value } = e.target;
-    setCreateFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    if (createErrors[name]) {
-      setCreateErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-  };
-
-  const handleEditInputChange = (e) => {
-    const { name, value } = e.target;
-    setEditFormData(prev => ({
-      ...prev,
-      [name]: value
-    }));
-    
-    if (editErrors[name]) {
-      setEditErrors(prev => ({
-        ...prev,
-        [name]: ''
-      }));
-    }
-  };
-
-  const validateCreateForm = () => {
-    const newErrors = {};
-
-    if (!createFormData.user_name.trim()) newErrors.user_name = 'Username is required';
-    if (!createFormData.password.trim()) newErrors.password = 'Password is required';
-    if (!createFormData.mobile_number.trim()) newErrors.mobile_number = 'Mobile number is required';
-    if (!createFormData.role.trim()) newErrors.role = 'Role is required';
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (createFormData.email && !emailRegex.test(createFormData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-
-    const mobileRegex = /^[0-9]{10}$/;
-    if (createFormData.mobile_number && !mobileRegex.test(createFormData.mobile_number)) {
-      newErrors.mobile_number = 'Please enter a valid 10-digit mobile number';
-    }
-
-    setCreateErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const validateEditForm = () => {
-    const newErrors = {};
-
-    if (!editFormData.user_name.trim()) newErrors.user_name = 'Username is required';
-    if (!editFormData.mobile_number.trim()) newErrors.mobile_number = 'Mobile number is required';
-    if (!editFormData.role.trim()) newErrors.role = 'Role is required';
-
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (editFormData.email && !emailRegex.test(editFormData.email)) {
-      newErrors.email = 'Please enter a valid email address';
-    }
-
-    const mobileRegex = /^[0-9]{10}$/;
-    if (editFormData.mobile_number && !mobileRegex.test(editFormData.mobile_number)) {
-      newErrors.mobile_number = 'Please enter a valid 10-digit mobile number';
-    }
-
-    setEditErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleCreateSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateCreateForm()) return;
-
-    try {
-      const userData = {
-        email: createFormData.email,
-        role: createFormData.role,
-        password: createFormData.password,
-        mobile_number: parseInt(createFormData.mobile_number),
-        user_name: createFormData.user_name
-      };
-
-      await dispatch(createUser(userData)).unwrap();
+    if (userCreation.success || userEdit.success) {
+      setShowModal(false);
+      resetForm();
       dispatch(getUsersList());
-    } catch (error) {
-      console.error('Failed to create user:', error);
+      dispatch(userCreation.success ? clearUserCreationState() : clearUserEditState());
     }
-  };
+  }, [userCreation.success, userEdit.success, dispatch]);
 
-  const handleEditSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!validateEditForm()) return;
-
-    try {
-      const userData = {
-        email: editFormData.email,
-        role: editFormData.role,
-        mobile_number: parseInt(editFormData.mobile_number),
-        user_name: editFormData.user_name,
-        address: editFormData.address,
-        district: editFormData.district,
-        place: editFormData.place,
-        employment_type: editFormData.employment_type,
-        experienced: editFormData.experienced,
-        has_bike: editFormData.has_bike,
-        has_license: editFormData.has_license,
-        is_active: editFormData.is_active,
-        is_staff: editFormData.is_staff,
-        is_approved: editFormData.is_approved
-      };
-
-      if (editFormData.password.trim()) {
-        userData.password = editFormData.password;
-      }
-
-      await dispatch(editUser({ userId: selectedUser.id, userData })).unwrap();
-      dispatch(getUsersList());
-    } catch (error) {
-      console.error('Failed to edit user:', error);
-    }
-  };
-
-  const handleViewDetails = (user) => {
-    setSelectedUser(user);
-    setShowDetailsModal(true);
-  };
-
-  const handleEditUser = (user) => {
-    setSelectedUser(user);
-    setEditFormData({
-      email: user.email || '',
-      role: user.role || '',
-      password: '',
-      mobile_number: user.mobile_number || '',
-      user_name: user.user_name || '',
-      address: user.address || '',
-      district: user.district || '',
-      place: user.place || '',
-      employment_type: user.employment_type || '',
-      experienced: user.experienced || false,
-      has_bike: user.has_bike || false,
-      has_license: user.has_license || false,
-      is_active: user.is_active || true,
-      is_staff: user.is_staff || false,
-      is_approved: user.is_approved || false
-    });
-    setShowEditModal(true);
-  };
-
-  const refreshUsersList = () => {
-    dispatch(getUsersList());
-  };
-
-  const closeCreateModal = () => {
-    setShowCreateModal(false);
-    setCreateFormData({
+  const resetForm = () => {
+    setFormData({
       email: '',
       role: 'boys',
-      password: '',
-      mobile_number: '',
-      user_name: ''
-    });
-    setCreateErrors({});
-    dispatch(clearUserCreationState());
-  };
-
-  const closeEditModal = () => {
-    setShowEditModal(false);
-    setEditFormData({
-      email: '',
-      role: '',
       password: '',
       mobile_number: '',
       user_name: '',
@@ -306,12 +109,134 @@ const UserManagement = () => {
       is_staff: false,
       is_approved: false
     });
-    setEditErrors({});
+    setErrors({});
     setSelectedUser(null);
-    dispatch(clearUserEditState());
+    setIsEditMode(false);
+    setShowAdvancedFields(false);
   };
 
-  const filteredUsers = usersList.data.filter(user => {
+  const handleInputChange = (e) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({
+      ...prev,
+      [name]: value
+    }));
+    
+    if (errors[name]) {
+      setErrors(prev => ({
+        ...prev,
+        [name]: ''
+      }));
+    }
+  };
+
+  const handleCheckboxChange = (name) => (e) => {
+    setFormData(prev => ({
+      ...prev,
+      [name]: e.target.checked
+    }));
+  };
+
+  const validateForm = () => {
+    const newErrors = {};
+
+    if (!formData.user_name.trim()) newErrors.user_name = 'Username is required';
+    if (!isEditMode && !formData.password.trim()) newErrors.password = 'Password is required';
+    if (!formData.mobile_number.trim()) newErrors.mobile_number = 'Mobile number is required';
+    if (!formData.role.trim()) newErrors.role = 'Role is required';
+
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    if (formData.email && !emailRegex.test(formData.email)) {
+      newErrors.email = 'Please enter a valid email address';
+    }
+
+    const mobileRegex = /^[0-9]{10}$/;
+    if (formData.mobile_number && !mobileRegex.test(formData.mobile_number)) {
+      newErrors.mobile_number = 'Please enter a valid 10-digit mobile number';
+    }
+
+    setErrors(newErrors);
+    return Object.keys(newErrors).length === 0;
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    
+    if (!validateForm()) return;
+
+    try {
+      const userData = {
+        email: formData.email,
+        role: formData.role,
+        mobile_number: parseInt(formData.mobile_number),
+        user_name: formData.user_name,
+        address: formData.address,
+        district: formData.district,
+        place: formData.place,
+        employment_type: formData.employment_type,
+        experienced: formData.experienced,
+        has_bike: formData.has_bike,
+        has_license: formData.has_license,
+        is_active: formData.is_active,
+        is_staff: formData.is_staff,
+        is_approved: formData.is_approved
+      };
+
+      if (!isEditMode || formData.password.trim()) {
+        userData.password = formData.password;
+      }
+
+      if (isEditMode) {
+        await dispatch(editUser({ userId: selectedUser.id, userData })).unwrap();
+      } else {
+        await dispatch(createUser(userData)).unwrap();
+      }
+    } catch (error) {
+      console.error('Failed to save user:', error);
+    }
+  };
+
+    const handleViewDetails = (user) => {
+    setSelectedUser(user);
+    setShowDetailsModal(true);
+  };
+
+  const handleEditUser = (user) => {
+    setSelectedUser(user);
+    setIsEditMode(true);
+    setFormData({
+      email: user.email || '',
+      role: user.role || 'boys',
+      password: '',
+      mobile_number: user.mobile_number || '',
+      user_name: user.user_name || '',
+      address: user.address || '',
+      district: user.district || '',
+      place: user.place || '',
+      employment_type: user.employment_type || '',
+      experienced: user.experienced || false,
+      has_bike: user.has_bike || false,
+      has_license: user.has_license || false,
+      is_active: user.is_active !== undefined ? user.is_active : true,
+      is_staff: user.is_staff || false,
+      is_approved: user.is_approved || false
+    });
+    setShowModal(true);
+  };
+
+  const handleCreateUser = () => {
+    resetForm();
+    setIsEditMode(false);
+    setShowModal(true);
+  };
+
+  const refreshUsersList = () => {
+    dispatch(getUsersList());
+    setSearchTerm('');
+    setRoleFilter('all');
+  };
+
+  const filteredUsers = usersList.data?.filter(user => {
     const matchesSearch = user.user_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
                          user.user_id?.toLowerCase().includes(searchTerm.toLowerCase());
@@ -319,9 +244,9 @@ const UserManagement = () => {
     const matchesRole = roleFilter === 'all' || user.role === roleFilter;
     
     return matchesSearch && matchesRole;
-  });
+  }) || [];
 
-  const uniqueRoles = [...new Set(usersList.data.map(user => user.role))];
+  const uniqueRoles = [...new Set(usersList.data?.map(user => user.role) || [])];
 
   const formatDate = (dateString) => {
     if (!dateString) return 'N/A';
@@ -342,27 +267,25 @@ const UserManagement = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Mobile Header */}
-      <div className="bg-white border-b border-gray-200 sticky top-0 z-40">
-        <div className="px-4 py-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h1 className="text-lg font-semibold text-gray-900">Users</h1>
-              <p className="text-sm text-gray-600">Manage system users</p>
-            </div>
-            <button
-              onClick={() => setShowCreateModal(true)}
-              className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full shadow-lg"
-            >
-              <Plus className="h-5 w-5" />
-            </button>
+    <div className="min-h-screen bg-gray-50 pb-20">
+      {/* Header */}
+      <div className="bg-white border-b border-gray-200 sticky top-0 z-40 px-4 py-4">
+        <div className="flex items-center justify-between">
+          <div>
+            <h1 className="text-lg font-semibold text-gray-900">User Management</h1>
+            <p className="text-sm text-gray-600">{filteredUsers.length} users found</p>
           </div>
+          <button
+            onClick={handleCreateUser}
+            className="bg-blue-600 hover:bg-blue-700 text-white p-2 rounded-full shadow-lg"
+          >
+            <Plus className="h-5 w-5" />
+          </button>
         </div>
       </div>
 
       {/* Search and Filters */}
-      <div className="bg-white border-b border-gray-200 px-4 py-3">
+      <div className="bg-white border-b border-gray-200 px-4 py-3 sticky top-16 z-30">
         <div className="space-y-3">
           <div className="relative">
             <Search className="absolute left-3 top-3 h-4 w-4 text-gray-400" />
@@ -468,34 +391,35 @@ const UserManagement = () => {
                         <h3 className="text-sm font-medium text-gray-900 truncate">
                           {user.user_name}
                         </h3>
+                        <span className={`inline-flex px-2 py-0.5 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
+                          {user.role}
+                        </span>
                       </div>
                       <p className="text-xs text-gray-500 truncate">{user.email}</p>
                       <p className="text-xs text-gray-500">{user.mobile_number}</p>
                     </div>
                   </div>
-                  <div className="flex items-center space-x-2">
-                    <span className={`inline-flex px-2 py-1 text-xs font-semibold rounded-full ${getRoleColor(user.role)}`}>
-                      {user.role}
-                    </span>
-                  </div>
+                  <button
+                    onClick={() => handleEditUser(user)}
+                    className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                  >
+                    <Edit className="h-4 w-4" />
+                  </button>
+                <button
+                onClick={() => handleViewDetails(user)}
+                className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
+                >
+                <Eye className="h-4 w-4" />
+                </button>
                 </div>
                 
                 <div className="mt-3 flex items-center justify-between">
                   <p className="text-xs text-gray-500">ID: {user.user_id}</p>
-                  <div className="flex items-center space-x-2">
-                    <button
-                      onClick={() => handleViewDetails(user)}
-                      className="p-2 text-blue-600 hover:bg-blue-50 rounded-lg"
-                    >
-                      <Eye className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleEditUser(user)}
-                      className="p-2 text-green-600 hover:bg-green-50 rounded-lg"
-                    >
-                      <Edit className="h-4 w-4" />
-                    </button>
-                  </div>
+                  <span className={`text-xs px-2 py-1 rounded-full ${
+                    user.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
+                  }`}>
+                    {user.is_active ? 'Active' : 'Inactive'}
+                  </span>
                 </div>
               </div>
             ))}
@@ -503,15 +427,20 @@ const UserManagement = () => {
         )}
       </div>
 
-      {/* Create User Modal */}
-      {showCreateModal && (
+      {/* User Form Modal */}
+      {showModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
           <div className="bg-white rounded-t-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4">
               <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900">Create New User</h3>
+                <h3 className="text-lg font-medium text-gray-900">
+                  {isEditMode ? 'Edit User' : 'Create New User'}
+                </h3>
                 <button
-                  onClick={closeCreateModal}
+                  onClick={() => {
+                    setShowModal(false);
+                    resetForm();
+                  }}
                   className="text-gray-400 hover:text-gray-600"
                 >
                   <X className="h-5 w-5" />
@@ -519,129 +448,313 @@ const UserManagement = () => {
               </div>
             </div>
 
-            <form onSubmit={handleCreateSubmit} className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <User className="h-4 w-4 inline mr-1" />
-                  Username
-                </label>
-                <input
-                  type="text"
-                  name="user_name"
-                  value={createFormData.user_name}
-                  onChange={handleCreateInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    createErrors.user_name ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter username"
-                />
-                {createErrors.user_name && (
-                  <p className="mt-1 text-sm text-red-600">{createErrors.user_name}</p>
+            <form onSubmit={handleSubmit} className="p-4 space-y-4">
+              {/* Basic Information Section */}
+              <div className="space-y-4">
+                <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                  <User className="h-4 w-4 mr-2" />
+                  Basic Information
+                </h4>
+
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Username *</label>
+                  <input
+                    type="text"
+                    name="user_name"
+                    value={formData.user_name}
+                    onChange={handleInputChange}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.user_name ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter username"
+                  />
+                  {errors.user_name && (
+                    <p className="mt-1 text-xs text-red-600">{errors.user_name}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Email</label>
+                  <input
+                    type="email"
+                    name="email"
+                    value={formData.email}
+                    onChange={handleInputChange}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.email ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter email"
+                  />
+                  {errors.email && (
+                    <p className="mt-1 text-xs text-red-600">{errors.email}</p>
+                  )}
+                </div>
+
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Mobile Number *</label>
+                  <input
+                    type="tel"
+                    name="mobile_number"
+                    value={formData.mobile_number}
+                    onChange={handleInputChange}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.mobile_number ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                    placeholder="Enter mobile number"
+                  />
+                  {errors.mobile_number && (
+                    <p className="mt-1 text-xs text-red-600">{errors.mobile_number}</p>
+                  )}
+                </div>
+
+                {!isEditMode && (
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Password *</label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        errors.password ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Enter password"
+                    />
+                    {errors.password && (
+                      <p className="mt-1 text-xs text-red-600">{errors.password}</p>
+                    )}
+                  </div>
                 )}
+
+                {isEditMode && (
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">New Password</label>
+                    <input
+                      type="password"
+                      name="password"
+                      value={formData.password}
+                      onChange={handleInputChange}
+                      className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                        errors.password ? 'border-red-500' : 'border-gray-300'
+                      }`}
+                      placeholder="Leave blank to keep current"
+                    />
+                    {errors.password && (
+                      <p className="mt-1 text-xs text-red-600">{errors.password}</p>
+                    )}
+                  </div>
+                )}
+
+                <div>
+                  <label className="block text-sm text-gray-600 mb-1">Role *</label>
+                  <select
+                    name="role"
+                    value={formData.role}
+                    onChange={handleInputChange}
+                    className={`w-full px-3 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
+                      errors.role ? 'border-red-500' : 'border-gray-300'
+                    }`}
+                  >
+                    {roleOptions.map(role => (
+                      <option key={role.value} value={role.value}>{role.label}</option>
+                    ))}
+                  </select>
+                  {errors.role && (
+                    <p className="mt-1 text-xs text-red-600">{errors.role}</p>
+                  )}
+                </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Mail className="h-4 w-4 inline mr-1" />
-                  Email
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={createFormData.email}
-                  onChange={handleCreateInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    createErrors.email ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter email"
-                />
-                {createErrors.email && (
-                  <p className="mt-1 text-sm text-red-600">{createErrors.email}</p>
+              {/* Toggle for More Details */}
+              <button
+                type="button"
+                onClick={() => setShowAdvancedFields(!showAdvancedFields)}
+                className="w-full flex items-center justify-between py-2 text-sm font-medium text-gray-700"
+              >
+                <span>More Details</span>
+                {showAdvancedFields ? (
+                  <ChevronUp className="h-4 w-4" />
+                ) : (
+                  <ChevronDown className="h-4 w-4" />
                 )}
-              </div>
+              </button>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Phone className="h-4 w-4 inline mr-1" />
-                  Mobile Number
-                </label>
-                <input
-                  type="tel"
-                  name="mobile_number"
-                  value={createFormData.mobile_number}
-                  onChange={handleCreateInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    createErrors.mobile_number ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter mobile number"
-                />
-                {createErrors.mobile_number && (
-                  <p className="mt-1 text-sm text-red-600">{createErrors.mobile_number}</p>
-                )}
-              </div>
+              {/* More Details Section */}
+              {showAdvancedFields && (
+                <div className="space-y-4">
+                  <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                    <MapPin className="h-4 w-4 mr-2" />
+                    Location Details
+                  </h4>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Shield className="h-4 w-4 inline mr-1" />
-                  Role
-                </label>
-                <select
-                  name="role"
-                  value={createFormData.role}
-                  onChange={handleCreateInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    createErrors.role ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                >
-                  {roleOptions.map(role => (
-                    <option key={role.value} value={role.value}>{role.label}</option>
-                  ))}
-                </select>
-                {createErrors.role && (
-                  <p className="mt-1 text-sm text-red-600">{createErrors.role}</p>
-                )}
-              </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Address</label>
+                    <input
+                      type="text"
+                      name="address"
+                      value={formData.address}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter address"
+                    />
+                  </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Lock className="h-4 w-4 inline mr-1" />
-                  Password
-                </label>
-                <input
-                  type="password"
-                  name="password"
-                  value={createFormData.password}
-                  onChange={handleCreateInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    createErrors.password ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter password"
-                />
-                {createErrors.password && (
-                  <p className="mt-1 text-sm text-red-600">{createErrors.password}</p>
-                )}
-              </div>
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">District</label>
+                    <input
+                      type="text"
+                      name="district"
+                      value={formData.district}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter district"
+                    />
+                  </div>
 
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Place</label>
+                    <input
+                      type="text"
+                      name="place"
+                      value={formData.place}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      placeholder="Enter place"
+                    />
+                  </div>
+
+                  <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                    <Briefcase className="h-4 w-4 mr-2" />
+                    Employment Details
+                  </h4>
+
+                  <div>
+                    <label className="block text-sm text-gray-600 mb-1">Employment Type</label>
+                    <select
+                      name="employment_type"
+                      value={formData.employment_type}
+                      onChange={handleInputChange}
+                      className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {employmentOptions.map(option => (
+                        <option key={option.value} value={option.value}>{option.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-gray-600">Experienced</label>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.experienced}
+                          onChange={handleCheckboxChange('experienced')}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-gray-600">Has Bike</label>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.has_bike}
+                          onChange={handleCheckboxChange('has_bike')}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-gray-600">Has License</label>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.has_license}
+                          onChange={handleCheckboxChange('has_license')}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <h4 className="text-sm font-medium text-gray-700 flex items-center">
+                    <Shield className="h-4 w-4 mr-2" />
+                    Account Status
+                  </h4>
+
+                  <div className="space-y-2">
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-gray-600">Active Status</label>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.is_active}
+                          onChange={handleCheckboxChange('is_active')}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-gray-600">Staff Status</label>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.is_staff}
+                          onChange={handleCheckboxChange('is_staff')}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+
+                    <div className="flex items-center justify-between">
+                      <label className="text-sm text-gray-600">Approved</label>
+                      <label className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          type="checkbox"
+                          checked={formData.is_approved}
+                          onChange={handleCheckboxChange('is_approved')}
+                          className="sr-only peer"
+                        />
+                        <div className="w-11 h-6 bg-gray-200 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
+                      </label>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Form Actions */}
               <div className="flex space-x-3 pt-4">
                 <button
                   type="button"
-                  onClick={closeCreateModal}
-                  className="flex-1 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
+                  onClick={() => {
+                    setShowModal(false);
+                    resetForm();
+                  }}
+                  className="flex-1 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  disabled={userCreation.isLoading}
-                  className="flex-1 py-3 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
+                  disabled={userCreation.isLoading || userEdit.isLoading}
+                  className="flex-1 py-2 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
                 >
-                  {userCreation.isLoading ? (
+                  {(userCreation.isLoading || userEdit.isLoading) ? (
                     <>
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Creating...
+                      {isEditMode ? 'Updating...' : 'Creating...'}
                     </>
                   ) : (
-                    'Create User'
+                    isEditMode ? 'Update User' : 'Create User'
                   )}
                 </button>
               </div>
@@ -649,341 +762,6 @@ const UserManagement = () => {
           </div>
         </div>
       )}
-
-      {/* Edit User Modal */}
-      {showEditModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
-          <div className="bg-white rounded-t-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-white border-b border-gray-200 px-4 py-4">
-              <div className="flex items-center justify-between">
-                <h3 className="text-lg font-medium text-gray-900">Edit User</h3>
-                <button
-                  onClick={closeEditModal}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <X className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
-
-            <form onSubmit={handleEditSubmit} className="p-4 space-y-4">
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <User className="h-4 w-4 inline mr-1" />
-                  Username
-                </label>
-                <input
-                  type="text"
-                  name="user_name"
-                  value={editFormData.user_name}
-                  onChange={handleEditInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    editErrors.user_name ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter username"
-                />
-                {editErrors.user_name && (
-                  <p className="mt-1 text-sm text-red-600">{editErrors.user_name}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Mail className="h-4 w-4 inline mr-1" />
-                  Email
-                </label>
-                <input
-                  type="email"
-                  name="email"
-                  value={editFormData.email}
-                  onChange={handleEditInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    editErrors.email ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter email"
-                />
-                {editErrors.email && (
-                  <p className="mt-1 text-sm text-red-600">{editErrors.email}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Phone className="h-4 w-4 inline mr-1" />
-                  Mobile Number
-                </label>
-                <input
-                  type="tel"
-                  name="mobile_number"
-                  value={editFormData.mobile_number}
-                  onChange={handleEditInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    editErrors.mobile_number ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter mobile number"
-                />
-                {editErrors.mobile_number && (
-                  <p className="mt-1 text-sm text-red-600">{editErrors.mobile_number}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Shield className="h-4 w-4 inline mr-1" />
-                  Role
-                </label>
-                <select
-                  name="role"
-                  value={editFormData.role}
-                  onChange={handleEditInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    editErrors.role ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                >
-                  {roleOptions.map(role => (
-                    <option key={role.value} value={role.value}>{role.label}</option>
-                  ))}
-                </select>
-                {editErrors.role && (
-                  <p className="mt-1 text-sm text-red-600">{editErrors.role}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <MapPin className="h-4 w-4 inline mr-1" />
-                  Address
-                </label>
-                <input
-                  type="text"
-                  name="address"
-                  value={editFormData.address}
-                  onChange={handleEditInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    editErrors.address ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter address"
-                />
-                {editErrors.address && (
-                  <p className="mt-1 text-sm text-red-600">{editErrors.address}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <MapPin className="h-4 w-4 inline mr-1" />
-                  District
-                </label>
-                <input
-                  type="text"
-                  name="district"
-                  value={editFormData.district}
-                  onChange={handleEditInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    editErrors.district ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter district"
-                />
-                {editErrors.district && (
-                  <p className="mt-1 text-sm text-red-600">{editErrors.district}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <MapPin className="h-4 w-4 inline mr-1" />
-                  Place
-                </label>
-                <input
-                  type="text"
-                  name="place"
-                  value={editFormData.place}
-                  onChange={handleEditInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    editErrors.place ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter place"
-                />
-                {editErrors.place && (
-                  <p className="mt-1 text-sm text-red-600">{editErrors.place}</p>
-                )}
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Briefcase className="h-4 w-4 inline mr-1" />
-                  Employment Type
-                </label>
-                <select
-                  name="employment_type"
-                  value={editFormData.employment_type}
-                  onChange={handleEditInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    editErrors.employment_type ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                >
-                  <option value="">Select employment type</option>
-                  <option value="full-time">Full Time</option>
-                  <option value="part-time">Part Time</option>
-                </select>
-                {editErrors.employment_type && (
-                  <p className="mt-1 text-sm text-red-600">{editErrors.employment_type}</p>
-                )}
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">
-                    <CheckCircle className="h-4 w-4 inline mr-1" />
-                    Experienced
-                  </label>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="experienced"
-                      checked={editFormData.experienced}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, experienced: e.target.checked }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">
-                    <Bike className="h-4 w-4 inline mr-1" />
-                    Has Bike
-                  </label>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="has_bike"
-                      checked={editFormData.has_bike}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, has_bike: e.target.checked }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">
-                    <CreditCard className="h-4 w-4 inline mr-1" />
-                    Has License
-                  </label>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="has_license"
-                      checked={editFormData.has_license}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, has_license: e.target.checked }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">
-                    <Shield className="h-4 w-4 inline mr-1" />
-                    Active Status
-                  </label>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="is_active"
-                      checked={editFormData.is_active}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, is_active: e.target.checked }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">
-                    <User className="h-4 w-4 inline mr-1" />
-                    Staff Status
-                  </label>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="is_staff"
-                      checked={editFormData.is_staff}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, is_staff: e.target.checked }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-
-                <div className="flex items-center justify-between">
-                  <label className="text-sm font-medium text-gray-700">
-                    <CheckCircle className="h-4 w-4 inline mr-1" />
-                    Approved
-                  </label>
-                  <label className="relative inline-flex items-center cursor-pointer">
-                    <input
-                      type="checkbox"
-                      name="is_approved"
-                      checked={editFormData.is_approved}
-                      onChange={(e) => setEditFormData(prev => ({ ...prev, is_approved: e.target.checked }))}
-                      className="sr-only peer"
-                    />
-                    <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 peer-focus:ring-blue-300 rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600"></div>
-                  </label>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  <Lock className="h-4 w-4 inline mr-1" />
-                  Password (Leave blank to keep current)
-                </label>
-                <input
-                  type="password"
-                  name="password"
-                  value={editFormData.password}
-                  onChange={handleEditInputChange}
-                  className={`w-full px-3 py-3 border rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 ${
-                    editErrors.password ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                  placeholder="Enter new password"
-                />
-                {editErrors.password && (
-                  <p className="mt-1 text-sm text-red-600">{editErrors.password}</p>
-                )}
-              </div>
-
-              <div className="flex space-x-3 pt-4">
-                <button
-                  type="button"
-                  onClick={closeEditModal}
-                  className="flex-1 py-3 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={userEdit.isLoading}
-                  className="flex-1 py-3 text-sm font-medium text-white bg-blue-600 border border-transparent rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center"
-                >
-                  {userEdit.isLoading ? (
-                    <>
-                      <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin mr-2"></div>
-                      Updating...
-                    </>
-                  ) : (
-                    'Update User'
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* User Details Modal */}
       {showDetailsModal && selectedUser && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-end justify-center z-50">
           <div className="bg-white rounded-t-lg w-full max-h-[90vh] overflow-y-auto">

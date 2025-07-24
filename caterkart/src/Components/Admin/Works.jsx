@@ -43,30 +43,26 @@ import {
 
 import { getUsersList } from '../../Services/Api/Admin/UserSlice';
 
-// Toast Component
+// Update the Toast component
 const Toast = ({ message, type, onClose }) => {
   useEffect(() => {
     const timer = setTimeout(() => {
       onClose();
-    }, 5000); // Increased timeout for better UX
+    }, 5000);
     return () => clearTimeout(timer);
   }, [onClose]);
 
   const getToastStyles = () => {
     switch (type) {
-      case 'success':
-        return 'bg-green-500 text-white';
-      case 'error':
-        return 'bg-red-500 text-white';
-      case 'warning':
-        return 'bg-yellow-500 text-white';
-      default:
-        return 'bg-blue-500 text-white';
+      case 'success': return 'bg-green-500 text-white';
+      case 'error': return 'bg-red-500 text-white';
+      case 'warning': return 'bg-yellow-500 text-white';
+      default: return 'bg-blue-500 text-white';
     }
   };
 
   return (
-    <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${getToastStyles()} animate-slide-in max-w-sm`}>
+    <div className={`fixed top-4 right-4 z-[100] flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg ${getToastStyles()} animate-slide-in max-w-sm`}>
       <span className="text-sm">{message}</span>
       <button onClick={onClose} className="ml-2 hover:bg-white hover:bg-opacity-20 rounded p-1 flex-shrink-0">
         <X className="h-4 w-4" />
@@ -74,6 +70,27 @@ const Toast = ({ message, type, onClose }) => {
     </div>
   );
 };
+
+// Update the ConfirmToast component similarly
+const ConfirmToast = ({ message, onConfirm, onCancel }) => (
+  <div className="fixed top-4 right-4 z-[100] bg-white border border-gray-300 rounded-lg shadow-lg p-4 max-w-sm">
+    <p className="text-gray-800 mb-4">{message}</p>
+    <div className="flex gap-2 justify-end">
+      <button
+        onClick={onCancel}
+        className="px-3 py-1 text-sm bg-gray-200 text-gray-800 rounded hover:bg-gray-300"
+      >
+        Cancel
+      </button>
+      <button
+        onClick={onConfirm}
+        className="px-3 py-1 text-sm bg-red-600 text-white rounded hover:bg-red-700"
+      >
+        Delete
+      </button>
+    </div>
+  </div>
+);
 
 const Works = () => {
   const dispatch = useDispatch();
@@ -103,6 +120,22 @@ const {
   const [availableSupervisors, setAvailableSupervisors] = useState([]);
   const [selectedBoys, setSelectedBoys] = useState([]);
   const [availableBoys, setAvailableBoys] = useState([]);
+  const [assignedUserIds, setAssignedUserIds] = useState(new Set());
+  const [selectedByRole, setSelectedByRole] = useState({
+    subadmin: [],
+    supervisor: [],
+    head_boy: [],
+    boys: []
+  });
+
+  const titleMap = {
+    subadmin: "Sub Admins",
+    supervisor: "Supervisors",
+    head_boy: "Head Boys",
+    boy: "Boys",
+  };
+
+
   
   
   const [formData, setFormData] = useState({
@@ -133,8 +166,7 @@ useEffect(() => {
 }, [dispatch]);
 
   useEffect(() => {
-    const boys = users.filter(user => user.role === 'boys');
-    setAvailableBoys(boys);
+    setAvailableBoys(users);
   }, [users]);
 
 
@@ -143,6 +175,12 @@ useEffect(() => {
     setAvailableSupervisors(supervisors);
   }, [users]);
 
+  useEffect(() => {
+  if (assignedUsers.users) {
+    const ids = new Set(assignedUsers.users.map(user => user.user_id));
+    setAssignedUserIds(ids);
+  }
+}, [assignedUsers.users]);
 
   useEffect(() => {
   if (users.length > 0 && assignedUsers.users) {
@@ -162,7 +200,7 @@ useEffect(() => {
       .map(user => user.id);
     
     const unassignedBoys = users.filter(user => 
-      user.role === 'boys' && !assignedBoyIds.includes(user.id)
+      !assignedBoyIds.includes(user.id)
     );
     setAvailableBoys(unassignedBoys);
   } else {
@@ -214,55 +252,39 @@ const handleWorkClick = async (work) => {
   }
 };
 
-const handleAssignSupervisors = async () => {
-  if (!selectedWork || selectedSupervisors.length === 0) {
-    showToast('Please select at least one supervisor', 'error');
+
+const handleAssignByRole = async (roleType) => {
+  // Filter out already assigned users from the selection
+  const usersToAssign = selectedByRole[roleType].filter(id => !assignedUserIds.has(id));
+  console.log(assignedUserIds)
+  if (usersToAssign.length === 0) {
+    showToast(`All selected ${roleType} are already assigned`, 'warning');
     return;
   }
 
-  try {
-    const result = await dispatch(assignSupervisors({
-      work: selectedWork.id,
-      assignments: selectedSupervisors.map(id => ({ supervisor_id: id }))
-    })).unwrap();
-    
-    showToast('Supervisors assigned successfully!', 'success');
-    handleCloseSupervisorModal();
-    
-    // Refresh assigned users and work requests
-    await dispatch(fetchAssignedUsers(selectedWork.id));
-    await dispatch(fetchWorkRequestsByWork(selectedWork.id));
-    
-  } catch (error) {
-    console.error('Supervisor assignment error:', error);
-    showToast(error.message || error || 'Failed to assign supervisors', 'error');
-  }
-};
-
-const handleAssignBoys = async () => {
-  if (!selectedWork || selectedBoys.length === 0) {
-    showToast('Please select at least one boy', 'error');
-    return;
-  }
-
-  // This now directly sends an array of boy IDs, e.g., [3, 5]
   const payload = {
-    work: selectedWork.id,
-    boys: selectedBoys,
+    work_id: selectedWork.id,
+    role_type: roleType,
+    user_ids: usersToAssign,
   };
 
   try {
-    const result = await dispatch(assignBoyToWork(payload)).unwrap();
-    showToast('Boys assigned successfully!', 'success');
-    handleCloseBoyModal();
-
+    await dispatch(assignBoyToWork(payload)).unwrap();
+    showToast(`${usersToAssign.length} ${roleType} assigned successfully!`, 'success');
+    
+    // Update local state with newly assigned users
+    const newAssignedIds = new Set(assignedUserIds);
+    usersToAssign.forEach(id => newAssignedIds.add(id));
+    setAssignedUserIds(newAssignedIds);
+    
+    // Clear selection for this role
+    setSelectedByRole(prev => ({ ...prev, [roleType]: [] }));
+    
     // Refresh data
     await dispatch(fetchAssignedUsers(selectedWork.id));
-    await dispatch(fetchWorkRequestsByWork(selectedWork.id));
-
   } catch (error) {
-    console.error('Boy assignment error:', error);
-    showToast(error.message || error || 'Failed to assign boys', 'error');
+    console.error('Assignment error:', error);
+    showToast(error.message || 'Failed to assign', 'error');
   }
 };
 
@@ -415,10 +437,6 @@ const handleAssignBoys = async () => {
 
   const handleCloseDetailModal = () => {
     dispatch(clearSelectedWork());
-  };
-
-  const handleOpenSupervisorModal = () => {
-    dispatch(setShowSupervisorModal(true));
   };
 
   const handleCloseSupervisorModal = () => {
@@ -1121,14 +1139,7 @@ const handleAssignBoys = async () => {
               className="bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 flex items-center gap-2 text-sm"
             >
               <Plus className="h-4 w-4" />
-              Add Boy
-            </button>
-            <button
-              onClick={handleOpenSupervisorModal}
-              className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center gap-2 text-sm"
-            >
-              <Plus className="h-4 w-4" />
-              Assign Supervisors
+              Assign Users
             </button>
           </div>
         </div>
@@ -1209,7 +1220,7 @@ const handleAssignBoys = async () => {
             <Users className="mx-auto h-12 w-12 text-gray-400 mb-3" />
             <h4 className="text-lg font-medium text-gray-900 mb-2">No Users Assigned</h4>
             <p className="text-sm text-gray-500">
-              Click the buttons above to assign supervisors or boys to this work.
+              Click the buttons above to assign Users to this work.
             </p>
           </div>
         )}
@@ -1385,140 +1396,144 @@ const handleAssignBoys = async () => {
   </div>
 )}
 
-{/* Boy Assignment Modal */}
 {showBoyModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-          <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
+  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
+    <div className="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
+
+      {/* ✅ Define once, outside the .map */}
+      {(() => {
+        const assignedUserIds = new Set(
+          assignedUsers?.users?.map((user) => user.id)
+        );
+
+        const titleMap = {
+          subadmin: "Sub Admins",
+          supervisor: "Supervisors",
+          head_boy: "Head Boys",
+          boys: "Boys",
+        };
+
+        return (
+          <>
             <div className="flex justify-between items-center mb-4">
-              <h3 className="text-lg font-semibold text-gray-900">Assign Boys</h3>
+              <h3 className="text-xl font-semibold text-gray-900">Assign Users</h3>
               <button
-                onClick={handleCloseBoyModal} // Updated
+                onClick={handleCloseBoyModal}
                 className="text-gray-500 hover:text-gray-700"
               >
-                <X className="h-5 w-5" />
+                <X className="h-6 w-6" />
               </button>
             </div>
-      
-      <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
-        {availableBoys.length > 0 ? (
-          availableBoys.map((boy) => (
-            <label key={boy.id} className="flex items-center p-2 hover:bg-gray-50 rounded">
-              <input
-                type="checkbox"
-                checked={selectedBoys.includes(boy.id)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedBoys([...selectedBoys, boy.id]);
-                  } else {
-                    setSelectedBoys(selectedBoys.filter(id => id !== boy.id));
-                  }
-                }}
-                className="mr-3"
-              />
-              <div className="flex-1">
-                <span className="text-sm font-medium text-gray-700">{boy.user_name}</span>
-                <div className="text-xs text-gray-500">
-                  {boy.mobile_number && <span>{boy.mobile_number}</span>}
-                  {boy.place && <span> • {boy.place}</span>}
-                </div>
-                <div className="flex gap-1 mt-1">
-                  {boy.experienced && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-green-100 text-green-800">
-                      Experienced
-                    </span>
-                  )}
-                  {boy.has_bike && (
-                    <span className="inline-flex items-center px-1.5 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
-                      Has Bike
-                    </span>
-                  )}
+
+            {["subadmin", "supervisor", "head_boy", "boys"].map((roleKey) => {
+            const boysByRole = availableBoys.filter((boy) => boy.role === roleKey);
+            if (boysByRole.length === 0) return null;
+
+            return (
+              <div key={roleKey} className="mb-6">
+                <h4 className="text-md font-semibold text-gray-700 border-b pb-1 mb-2">
+                  {titleMap[roleKey]}
+                </h4>
+
+                <div className="space-y-3 max-h-60 overflow-y-auto pr-2">
+                {boysByRole.map((boy) => {
+                  const isAssigned = assignedUserIds.has(boy.id);
+                  const isSelected = selectedByRole[roleKey]?.includes(boy.id);
+                  
+                  return (
+                    <div
+                      key={boy.id}
+                      className={`flex items-start gap-3 p-2 rounded ${
+                        isAssigned ? 'bg-gray-50 cursor-not-allowed' : 'hover:bg-gray-50 cursor-pointer'
+                      }`}
+                      onClick={() => {
+                        if (!isAssigned) {
+                          setSelectedByRole(prev => {
+                            const newSelection = isSelected
+                              ? prev[roleKey].filter(id => id !== boy.id)
+                              : [...prev[roleKey], boy.id];
+                            return { ...prev, [roleKey]: newSelection };
+                          });
+                        }
+                      }}
+                    >
+                      <input
+                        type="checkbox"
+                        disabled={isAssigned}
+                        checked={isSelected}
+                        readOnly
+                        className={`mt-1 ${isAssigned ? 'opacity-50' : ''}`}
+                      />
+
+                      <div className="flex-1">
+                        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between">
+                          <span className={`text-sm font-semibold ${
+                            isAssigned ? 'text-gray-500' : 'text-gray-800'
+                          }`}>
+                            {boy.user_name}
+                          </span>
+                          <span className="text-xs text-gray-500 capitalize">{boy.role}</span>
+                        </div>
+
+                        <div className="text-xs text-gray-700 mt-1 space-y-1">
+                          {boy.mobile_number && (
+                            <div className="flex items-center gap-1">
+                              <Phone className="h-3 w-3" />
+                              <span>{boy.mobile_number}</span>
+                            </div>
+                          )}
+                          <div className="flex items-center gap-1">
+                            <MapPin className="h-3 w-3" />
+                            <span className="px-2 py-0.5 rounded-full text-xs font-medium bg-yellow-100 text-yellow-800">
+                              {boy.place || 'Place not added'}
+                            </span>
+                          </div>
+                        </div>
+
+                        <div className="flex gap-2 mt-2 flex-wrap">
+                          {boy.has_bike && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-blue-100 text-blue-800">
+                              <Bike className="h-3 w-3 mr-1" />
+                              Has Bike
+                            </span>
+                          )}
+                          {isAssigned && (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-200 text-gray-600">
+                              <CheckCircle className="h-3 w-3 mr-1" />
+                              Already Assigned
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+                <div className="flex justify-end mt-2">
+                  <button
+                    onClick={() => handleAssignByRole(roleKey)}
+                    disabled={selectedByRole[roleKey]?.length === 0}
+                    className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    Assign {titleMap[roleKey]} ({selectedByRole[roleKey]?.length || 0})
+                  </button>
                 </div>
               </div>
-            </label>
-          ))
-        ) : (
-          <p className="text-sm text-gray-500 text-center py-4">No boys available</p>
-        )}
-      </div>
-      
-            <div className="flex justify-end gap-2">
-            <button
-              onClick={handleCloseBoyModal} // Updated
-              className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-            >
-              Cancel
-            </button>
-            <button
-              onClick={handleAssignBoys}
-              disabled={selectedBoys.length === 0}
-              className="px-4 py-2 bg-green-600 text-white rounded-md hover:bg-green-700 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              Assign Boys ({selectedBoys.length})
-            </button>
-          </div>
-    </div>
-  </div>
-)}
+            );
+          })}
 
-{/* Supervisor Assignment Modal */}
-{showSupervisorModal && (
-  <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-[60]">
-    <div className="bg-white rounded-lg p-6 w-full max-w-md max-h-[80vh] overflow-y-auto">
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-semibold text-gray-900">Assign Supervisors</h3>
-        <button
-          onClick={handleCloseSupervisorModal}
-          className="text-gray-500 hover:text-gray-700"
-        >
-          <X className="h-5 w-5" />
-        </button>
-      </div>
-
-      <div className="space-y-3 mb-4 max-h-60 overflow-y-auto">
-        {availableSupervisors.length > 0 ? (
-          availableSupervisors.map((supervisor) => (
-            <label key={supervisor.id} className="flex items-center p-2 hover:bg-gray-50 rounded">
-              <input
-                type="checkbox"
-                checked={selectedSupervisors.includes(supervisor.id)}
-                onChange={(e) => {
-                  if (e.target.checked) {
-                    setSelectedSupervisors([...selectedSupervisors, supervisor.id]);
-                  } else {
-                    setSelectedSupervisors(selectedSupervisors.filter(id => id !== supervisor.id));
-                  }
-                }}
-                className="mr-3"
-              />
-              <div className="flex-1">
-                <span className="text-sm font-medium text-gray-700">{supervisor.user_name}</span>
-                <div className="text-xs text-gray-500">
-                  {supervisor.mobile_number && <span>{supervisor.mobile_number}</span>}
-                  {supervisor.place && <span> • {supervisor.place}</span>}
-                </div>
-              </div>
-            </label>
-          ))
-        ) : (
-          <p className="text-sm text-gray-500 text-center py-4">No supervisors available</p>
-        )}
-      </div>
-
-      <div className="flex justify-end gap-2">
-        <button
-          onClick={handleCloseSupervisorModal}
-          className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
-        >
-          Cancel
-        </button>
-        <button
-          onClick={handleAssignSupervisors}
-          disabled={selectedSupervisors.length === 0}
-          className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          Assign Supervisors ({selectedSupervisors.length})
-        </button>
-      </div>
+            <div className="flex justify-end border-t pt-4 mt-4">
+              <button
+                onClick={handleCloseBoyModal}
+                className="px-4 py-2 text-gray-700 bg-gray-200 rounded-md hover:bg-gray-300"
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        );
+      })()}
     </div>
   </div>
 )}

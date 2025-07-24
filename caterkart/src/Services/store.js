@@ -5,6 +5,7 @@ import usersReducer from './Api/Admin/UserSlice'
 import workReducer from './Api/Admin/WorkSlice'
 import SubAdminAuthReducer from './Api/SubAdmin/SubLoginSlice'
 import subDashbaordReducer from './Api/SubAdmin/DashboardSlice'
+import userAuthReducer from './Api/User/UserAuthSlice'
 
 const store = configureStore({
   reducer: {
@@ -14,6 +15,7 @@ const store = configureStore({
     work: workReducer,
     subAdminAuth : SubAdminAuthReducer,
     subDashboard : subDashbaordReducer,
+    userAuth: userAuthReducer,
   },
   middleware: (getDefaultMiddleware) =>
     getDefaultMiddleware({

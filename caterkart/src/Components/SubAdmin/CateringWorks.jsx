@@ -14,6 +14,7 @@ const CateringWorks = () => {
   const [showModal, setShowModal] = useState(false);
   const [currentRatingUser, setCurrentRatingUser] = useState(null);
   const [currentWorkId, setCurrentWorkId] = useState(null);
+  const [activeTab, setActiveTab] = useState('upcoming');
   const [showAssignedUsersModal, setShowAssignedUsersModal] = useState(false);
   const [selectedWorkForUsers, setSelectedWorkForUsers] = useState(null);
   const [showRatingModal, setShowRatingModal] = useState(false);
@@ -37,27 +38,33 @@ const { boyRating, updateRating } = useSelector((state) => state.subAdminAuth);
     payment_status: 'not_paid'
   });
 
-  useEffect(() => {
-    dispatch(getCateringWorkList());
-  }, [dispatch]);
+useEffect(() => {
+  dispatch(getCateringWorkList('upcoming'));
+  dispatch(getCateringWorkList('past'));
+}, [dispatch]);
 
   const handleRefresh = () => {
     dispatch(getCateringWorkList());
   };
 
-  const filteredWorks = cateringWorkList.data.filter(work => {
+const currentWorkList = activeTab === 'upcoming' 
+  ? (cateringWorkList.upcoming?.data || []) 
+  : (cateringWorkList.past?.data || []);
+
+  const filteredWorks = currentWorkList.filter(work => {
     const matchesSearch = work.customer_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         work.place?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         work.district?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         work.work_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         work.Auditorium_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                         work.Catering_company?.toLowerCase().includes(searchTerm.toLowerCase());
+                        work.place?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        work.district?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        work.work_type?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        work.Auditorium_name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                        work.Catering_company?.toLowerCase().includes(searchTerm.toLowerCase());
     
     const matchesStatus = filterStatus === 'all' || work.status === filterStatus;
     const matchesWorkType = filterWorkType === 'all' || work.work_type === filterWorkType;
     
     return matchesSearch && matchesStatus && matchesWorkType;
   });
+
 
   const getStatusColor = (status) => {
     switch (status?.toLowerCase()) {
@@ -75,6 +82,7 @@ const { boyRating, updateRating } = useSelector((state) => state.subAdminAuth);
         return 'bg-gray-100 text-gray-800 border-gray-200';
     }
   };
+  
 
   const getWorkTypeColor = (workType) => {
     switch (workType?.toLowerCase()) {
@@ -158,9 +166,12 @@ useEffect(() => {
 
 
   // Get unique work types for filter
-  const workTypes = [...new Set(cateringWorkList.data.map(work => work.work_type).filter(Boolean))];
+  const workTypes = [...new Set(currentWorkList.map(work => work.work_type).filter(Boolean))];
   const currentAssignedUsers = currentWorkId ? assignedUsers.data[currentWorkId] || [] : [];
   const selectedWorkAssignedUsers = selectedWork ? assignedUsers.data[selectedWork.id] || [] : [];
+
+const isLoading = cateringWorkList.upcoming?.isLoading || cateringWorkList.past?.isLoading;
+const hasError = cateringWorkList.upcoming?.error || cateringWorkList.past?.error;
 
   return (
     <div className="min-h-screen bg-gray-50 p-4">
@@ -180,48 +191,40 @@ useEffect(() => {
           </button>
         </div>
 
-        {/* Search */}
-        <div className="relative mb-4">
-          <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-            <Search className="h-5 w-5 text-gray-400" />
-          </div>
-          <input
-            type="text"
-            placeholder="Search works..."
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm"
-          />
-        </div>
+        {/* Tab Navigation */}
+<div className="flex bg-gray-100 rounded-lg p-1 mb-4">
+  <button
+    onClick={() => setActiveTab('upcoming')}
+    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+      activeTab === 'upcoming'
+        ? 'bg-white text-blue-600 shadow-sm'
+        : 'text-gray-600 hover:text-gray-900'
+    }`}
+  >
+    Upcoming Works
+    {cateringWorkList.upcoming?.data?.length > 0 && (
+      <span className="ml-2 bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs">
+        {cateringWorkList.upcoming.data.length}
+      </span>
+    )}
+  </button>
+  <button
+    onClick={() => setActiveTab('past')}
+    className={`flex-1 py-2 px-4 rounded-md text-sm font-medium transition-colors ${
+      activeTab === 'past'
+        ? 'bg-white text-blue-600 shadow-sm'
+        : 'text-gray-600 hover:text-gray-900'
+    }`}
+  >
+    Past Works
+    {cateringWorkList.past?.data?.length > 0 && (
+      <span className="ml-2 bg-blue-100 text-blue-600 px-2 py-0.5 rounded-full text-xs">
+        {cateringWorkList.past.data.length}
+      </span>
+    )}
+  </button>
+</div>
 
-        {/* Filters */}
-        <div className="flex gap-3 overflow-x-auto pb-2">
-          <select
-            value={filterStatus}
-            onChange={(e) => setFilterStatus(e.target.value)}
-            className="flex-shrink-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm"
-          >
-            <option value="all">All Status</option>
-            <option value="pending">Pending</option>
-            <option value="in_progress">In Progress</option>
-            <option value="completed">Completed</option>
-            <option value="cancelled">Cancelled</option>
-            <option value="confirmed">Confirmed</option>
-          </select>
-          
-          <select
-            value={filterWorkType}
-            onChange={(e) => setFilterWorkType(e.target.value)}
-            className="flex-shrink-0 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white shadow-sm"
-          >
-            <option value="all">All Types</option>
-            {workTypes.map(workType => (
-              <option key={workType} value={workType}>
-                {formatWorkType(workType)}
-              </option>
-            ))}
-          </select>
-        </div>
       </div>
 
       {/* Loading State */}
@@ -246,11 +249,11 @@ useEffect(() => {
         </div>
       )}
 
-{!cateringWorkList.isLoading && !cateringWorkList.error && (
+{!isLoading && !hasError && (
   <div className="space-y-3">
     {filteredWorks.length === 0 ? (
       <div className="text-center py-8 text-gray-500">
-        <p>No catering works found.</p>
+        <p>No {activeTab} works found.</p>
       </div>
     ) : (
       filteredWorks.map((work) => (
@@ -550,15 +553,15 @@ useEffect(() => {
                     </button>
                     
                     {/* Edit Rating Button - Show if rating exists */}
-                    {user.rating_id && (
+                    {user.is_rated && (
                       <button
                         onClick={() => {
                           setSelectedUserForRating(user);
                           setIsEditMode(true);
-                          setEditingRatingId(user.rating_id);
+                          setEditingRatingId(user.is_rated);
                           setShowRatingModal(true);
                           // Fetch existing rating data
-                          dispatch(getBoyRating(user.rating_id));
+                          dispatch(getBoyRating(user.is_rated));
                         }}
                         className="bg-orange-600 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-orange-700"
                       >
@@ -569,7 +572,7 @@ useEffect(() => {
                 </div>
                 
                 {/* Show rating status if exists */}
-                {user.rating_id && (
+                {user.is_rated && (
                   <div className="mt-2 text-xs text-green-600 bg-green-50 px-2 py-1 rounded">
                     ✓ Rating submitted
                   </div>
@@ -1056,6 +1059,28 @@ useEffect(() => {
           </div>
         </div>
       )}
+
+      {isLoading && (
+  <div className="text-center py-8">
+    <div className="inline-flex items-center">
+      <RefreshCw className="h-5 w-5 animate-spin mr-2 text-blue-500" />
+      <span className="text-gray-600">Loading {activeTab} works...</span>
+    </div>
+  </div>
+)}
+
+{hasError && (
+  <div className="mb-4">
+    <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+      <div className="flex items-center">
+        <AlertCircle className="h-5 w-5 text-red-400 mr-2" />
+        <p className="text-red-700 text-sm font-medium">
+          {cateringWorkList.upcoming?.error || cateringWorkList.past?.error}
+        </p>
+      </div>
+    </div>
+  </div>
+)}
     </div>
   );
 };

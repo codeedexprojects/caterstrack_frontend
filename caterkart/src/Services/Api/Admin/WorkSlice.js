@@ -343,7 +343,7 @@ export const assignSupervisors = createAsyncThunk(
 // Update the existing assignBoyToWork to handle array of boys
 export const assignBoyToWork = createAsyncThunk(
   'work/assignBoyToWork',
-  async ({ work, boys }, { rejectWithValue, getState, dispatch }) => {
+  async ({ work_id, role_type,user_ids }, { rejectWithValue, getState, dispatch }) => {
     try {
       const { adminAuth } = getState();
 
@@ -352,15 +352,17 @@ export const assignBoyToWork = createAsyncThunk(
       }
 
       console.log("Making API request to assign boys", {
-        work,
-        boys
+          work_id,
+          role_type,
+          user_ids
       });
 
       const response = await axios.post(
-        `${API_BASE_URL}/admin_panel/assign-boy/`,
+        `${API_BASE_URL}/admin_panel/assign/head-boy-captain/`,
         {
-          work,
-          boys: boys  // your backend expects `boy`, so map correctly here
+          work_id,
+          role_type,
+          user_ids
         },
         {
           headers: {

@@ -226,7 +226,7 @@ const FaresList = () => {
                 <option value="boys">Boys</option>
                 <option value="head_boy">Head Boy</option>
                 <option value="supervisor">Supervisor</option>
-                <option value="captain">Captain</option>
+                <option value="subadmin">Sub Admin</option>
                 <option value="setting">Setting</option>
                 <option value="loading">Loading</option>
               </select>
